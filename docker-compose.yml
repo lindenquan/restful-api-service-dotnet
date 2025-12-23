@@ -1,0 +1,48 @@
+# Docker Compose for E2E Testing
+# Run: docker-compose -f docker-compose.e2e.yml up -d
+# Stop: docker-compose -f docker-compose.e2e.yml down -v
+
+services:
+  mongodb-e2e:
+    image: mongo:7
+    container_name: mongodb-e2e
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_e2e_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis-e2e:
+    image: redis:7-alpine
+    container_name: redis-e2e
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # Migration runner - initializes MongoDB collections and indexes
+  migrations-e2e:
+    build:
+      context: .
+      dockerfile: tools/DatabaseMigrations/Dockerfile
+    container_name: migrations-e2e
+    depends_on:
+      mongodb-e2e:
+        condition: service_healthy
+    environment:
+      - MongoDb__ConnectionString=mongodb://mongodb-e2e:27017
+      - MongoDb__DatabaseName=prescription_orders
+    restart: "no"
+
+volumes:
+  mongodb_e2e_data:
+
