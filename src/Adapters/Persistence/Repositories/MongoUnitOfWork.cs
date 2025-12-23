@@ -9,8 +9,9 @@ namespace Adapters.Persistence.Repositories;
 /// MongoDB implementation of Unit of Work.
 /// Note: MongoDB doesn't support traditional ACID transactions across collections
 /// without replica sets. This implementation provides a compatible interface.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class MongoUnitOfWork : IUnitOfWork
+public sealed class MongoUnitOfWork : IUnitOfWork
 {
     private readonly IMongoDatabase _database;
     private readonly IMongoCollection<Patient> _patientsCollection;

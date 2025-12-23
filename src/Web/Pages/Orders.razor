@@ -1,0 +1,90 @@
+@page "/orders"
+@using Adapters.ApiClient.V1
+@using DTOs.V1
+@inject IOrdersApiClient OrdersApi
+
+<PageTitle>Orders</PageTitle>
+
+<h1>Prescription Orders</h1>
+
+<p>This page demonstrates consuming the API using the typed API client.</p>
+
+@if (loading)
+{
+    <p><em>Loading orders...</em></p>
+}
+else if (error != null)
+{
+    <div class="alert alert-danger">
+        <strong>Error:</strong> @error
+    </div>
+}
+else if (orders == null || !orders.Any())
+{
+    <p><em>No orders found.</em></p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Customer Name</th>
+                <th>Medication</th>
+                <th>Status</th>
+                <th>Order Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var order in orders)
+            {
+                <tr>
+                    <td>@order.Id</td>
+                    <td>@order.CustomerName</td>
+                    <td>@order.Medication</td>
+                    <td>
+                        <span class="badge bg-@GetStatusColor(order.Status)">
+                            @order.Status
+                        </span>
+                    </td>
+                    <td>@order.OrderDate.ToString("yyyy-MM-dd HH:mm")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <p class="text-muted">Total orders: @orders.Count()</p>
+}
+
+@code {
+    private IEnumerable<OrderDto>? orders;
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // ✅ Type-safe API call using the generated client
+            orders = await OrdersApi.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string GetStatusColor(string status) => status.ToLower() switch
+    {
+        "pending" => "warning",
+        "processing" => "info",
+        "completed" => "success",
+        "cancelled" => "danger",
+        _ => "secondary"
+    };
+}
+

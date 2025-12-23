@@ -7,10 +7,11 @@ namespace Application.Behaviors;
 /// MediatR pipeline behavior for request validation.
 /// Runs all registered validators before the handler executes.
 /// Throws ValidationException if any validation fails.
+/// Sealed for performance optimization and design intent.
 /// </summary>
 /// <typeparam name="TRequest">The request type</typeparam>
 /// <typeparam name="TResponse">The response type</typeparam>
-public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
     private readonly IEnumerable<IValidator<TRequest>> _validators;

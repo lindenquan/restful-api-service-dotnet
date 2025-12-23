@@ -17,8 +17,9 @@ public record DeleteOrderCommand(
 
 /// <summary>
 /// Handler for DeleteOrderCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class DeleteOrderHandler : IRequestHandler<DeleteOrderCommand, bool>
+public sealed class DeleteOrderHandler : IRequestHandler<DeleteOrderCommand, bool>
 {
     private readonly IUnitOfWork _unitOfWork;
 

@@ -63,7 +63,13 @@ else if (env.EndsWith("-stage", StringComparison.OrdinalIgnoreCase))
 builder.Configuration.AddEnvironmentVariables();
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Serialize enums as strings (not numbers) for better API readability
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(options =>
 {

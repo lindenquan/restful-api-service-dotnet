@@ -11,8 +11,9 @@ public record CancelOrderCommand(int OrderId) : IRequest<bool>;
 
 /// <summary>
 /// Handler for CancelOrderCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class CancelOrderHandler : IRequestHandler<CancelOrderCommand, bool>
+public sealed class CancelOrderHandler : IRequestHandler<CancelOrderCommand, bool>
 {
     private readonly IUnitOfWork _unitOfWork;
 

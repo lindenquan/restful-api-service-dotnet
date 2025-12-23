@@ -10,6 +10,7 @@ public static class EntityToInternalDto
 {
     /// <summary>
     /// Maps a PrescriptionOrder entity to an InternalOrderDto.
+    /// Status is kept as enum for type safety - adapters convert to string if needed.
     /// </summary>
     public static InternalOrderDto Map(PrescriptionOrder order)
     {
@@ -21,7 +22,7 @@ public static class EntityToInternalDto
             MedicationName: order.Prescription?.MedicationName ?? "Unknown",
             Dosage: order.Prescription?.Dosage ?? "",
             OrderDate: order.OrderDate,
-            Status: order.Status.ToString(),
+            Status: order.Status,  // ← Keep as enum, not converted to string
             Notes: order.Notes,
             FulfilledDate: order.FulfilledDate,
             PickupDate: order.PickupDate,

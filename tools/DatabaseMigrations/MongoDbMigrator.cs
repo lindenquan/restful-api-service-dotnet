@@ -25,6 +25,7 @@ public class MongoDbMigrator
         // Run all migrations in order
         await CreateCollectionsAsync();
         await CreateIndexesAsync();
+        await SeedTestDataAsync();
         await CreateMigrationHistoryAsync();
 
         Console.WriteLine();
@@ -145,9 +146,64 @@ public class MongoDbMigrator
         }
     }
 
+    private async Task SeedTestDataAsync()
+    {
+        Console.WriteLine("[3/4] Seeding test data...");
+
+        // Only seed if patients collection is empty
+        var patientsCollection = _database.GetCollection<BsonDocument>("patients");
+        var patientCount = await patientsCollection.CountDocumentsAsync(new BsonDocument());
+
+        if (patientCount == 0)
+        {
+            // Seed test patient
+            var patient = new BsonDocument
+            {
+                { "_id", 1 },
+                { "firstName", "John" },
+                { "lastName", "Doe" },
+                { "email", "john.doe@example.com" },
+                { "phone", "555-0100" },
+                { "dateOfBirth", new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+                { "createdAt", DateTime.UtcNow },
+                { "createdBy", "system" },
+                { "isDeleted", false }
+            };
+            await patientsCollection.InsertOneAsync(patient);
+            Console.WriteLine("  ✓ Seeded test patient (ID: 1)");
+
+            // Seed test prescription
+            var prescriptionsCollection = _database.GetCollection<BsonDocument>("prescriptions");
+            var prescription = new BsonDocument
+            {
+                { "_id", 1 },
+                { "patientId", 1 },
+                { "medicationName", "Amoxicillin" },
+                { "dosage", "500mg" },
+                { "frequency", "Three times daily" },
+                { "quantity", 30 },
+                { "refillsRemaining", 2 },
+                { "prescriberName", "Dr. Smith" },
+                { "prescribedDate", DateTime.UtcNow.AddDays(-7) },
+                { "expiryDate", DateTime.UtcNow.AddMonths(6) },
+                { "instructions", "Take with food" },
+                { "prescriptionNumber", "RX-TEST-001" },
+                { "createdAt", DateTime.UtcNow },
+                { "createdBy", "system" },
+                { "isDeleted", false }
+            };
+            await prescriptionsCollection.InsertOneAsync(prescription);
+            Console.WriteLine("  ✓ Seeded test prescription (ID: 1)");
+        }
+        else
+        {
+            Console.WriteLine("  - Test data already exists");
+        }
+    }
+
     private async Task CreateMigrationHistoryAsync()
     {
-        Console.WriteLine("[3/3] Recording migration...");
+        Console.WriteLine("[4/4] Recording migration...");
 
         var collection = _database.GetCollection<BsonDocument>("migrationHistory");
         var version = "1.0.0";

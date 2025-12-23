@@ -8,8 +8,9 @@ namespace Adapters.Persistence.Repositories;
 /// <summary>
 /// MongoDB implementation of IUserRepository.
 /// API keys are stored as SHA-256 hashes.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class MongoUserRepository : MongoRepository<User>, IUserRepository
+public sealed class MongoUserRepository : MongoRepository<User>, IUserRepository
 {
     public MongoUserRepository(IMongoCollection<User> collection)
         : base(collection)

@@ -6,8 +6,9 @@ namespace Adapters.Cache;
 /// <summary>
 /// L1 in-memory cache service implementation using IMemoryCache.
 /// Provides thread-safe caching with automatic eviction and size limits.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class MemoryCacheService : ICacheService
+public sealed class MemoryCacheService : ICacheService
 {
     private readonly IMemoryCache _cache;
     private readonly CacheSettings _settings;

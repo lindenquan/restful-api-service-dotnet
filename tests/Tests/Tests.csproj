@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\Entities\Entities.csproj" />
     <ProjectReference Include="..\..\src\Adapters\Adapters.csproj" />
     <ProjectReference Include="..\..\src\Application\Application.csproj" />
+    <ProjectReference Include="..\..\src\DTOs\DTOs.csproj" />
   </ItemGroup>
 
 </Project>

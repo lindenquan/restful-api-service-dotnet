@@ -7,8 +7,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Exclude ApiClient folder (it's a separate project) -->
+    <Compile Remove="ApiClient\**" />
+    <Content Remove="ApiClient\**" />
+    <EmbeddedResource Remove="ApiClient\**" />
+    <None Remove="ApiClient\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Entities\Entities.csproj" />
     <ProjectReference Include="..\Application\Application.csproj" />
+    <ProjectReference Include="..\DTOs\DTOs.csproj" />
   </ItemGroup>
 
   <ItemGroup>

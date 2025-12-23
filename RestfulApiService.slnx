@@ -2,10 +2,17 @@
   <Folder Name="/src/">
     <Project Path="src/Adapters/Adapters.csproj" />
     <Project Path="src/Application/Application.csproj" />
+    <Project Path="src/Contracts/Contracts.csproj" />
+    <Project Path="src/DTOs/DTOs.csproj" />
     <Project Path="src/Entities/Entities.csproj" />
+    <Project Path="src/Web/Web.csproj" />
+  </Folder>
+  <Folder Name="/src/Adapters/">
+    <Project Path="src/Adapters/ApiClient/ApiClient.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Tests.E2E/Tests.E2E.csproj" />
     <Project Path="tests/Tests/Tests.csproj" />
+    <Project Path="tests/Tests.Api.E2E/Tests.Api.E2E.csproj" />
+    <Project Path="tests/Tests.Web/Tests.Web.csproj" />
   </Folder>
 </Solution>

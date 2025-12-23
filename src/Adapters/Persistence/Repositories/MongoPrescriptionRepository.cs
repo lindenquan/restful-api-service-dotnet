@@ -6,8 +6,9 @@ namespace Adapters.Persistence.Repositories;
 
 /// <summary>
 /// MongoDB implementation of IPrescriptionRepository.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class MongoPrescriptionRepository : MongoRepository<Prescription>, IPrescriptionRepository
+public sealed class MongoPrescriptionRepository : MongoRepository<Prescription>, IPrescriptionRepository
 {
     private readonly IMongoCollection<Patient> _patientsCollection;
 

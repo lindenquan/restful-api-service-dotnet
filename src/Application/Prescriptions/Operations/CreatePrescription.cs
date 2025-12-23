@@ -1,5 +1,5 @@
-using Application.DTOs;
 using Application.Interfaces.Repositories;
+using Application.Prescriptions.Shared;
 using Entities;
 using MediatR;
 
@@ -7,6 +7,7 @@ namespace Application.Prescriptions.Operations;
 
 /// <summary>
 /// Command to create a new prescription.
+/// Uses internal DTO - controllers map to/from versioned DTOs.
 /// </summary>
 public record CreatePrescriptionCommand(
     int PatientId,
@@ -18,12 +19,13 @@ public record CreatePrescriptionCommand(
     string PrescriberName,
     DateTime ExpiryDate,
     string? Instructions
-) : IRequest<PrescriptionDto>;
+) : IRequest<InternalPrescriptionDto>;
 
 /// <summary>
 /// Handler for CreatePrescriptionCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class CreatePrescriptionHandler : IRequestHandler<CreatePrescriptionCommand, PrescriptionDto>
+public sealed class CreatePrescriptionHandler : IRequestHandler<CreatePrescriptionCommand, InternalPrescriptionDto>
 {
     private readonly IUnitOfWork _unitOfWork;
 
@@ -32,7 +34,7 @@ public class CreatePrescriptionHandler : IRequestHandler<CreatePrescriptionComma
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<PrescriptionDto> Handle(CreatePrescriptionCommand request, CancellationToken ct)
+    public async Task<InternalPrescriptionDto> Handle(CreatePrescriptionCommand request, CancellationToken ct)
     {
         var patient = await _unitOfWork.Patients.GetByIdAsync(request.PatientId, ct)
             ?? throw new ArgumentException($"Patient with ID {request.PatientId} not found");
@@ -54,26 +56,9 @@ public class CreatePrescriptionHandler : IRequestHandler<CreatePrescriptionComma
         await _unitOfWork.Prescriptions.AddAsync(prescription, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
-        prescription.Patient = patient;  // Set for DTO mapping
-        return MapToDto(prescription);
+        // Reload with patient details for mapping
+        var savedPrescription = await _unitOfWork.Prescriptions.GetByIdWithPatientAsync(prescription.Id, ct);
+        return EntityToInternalDto.Map(savedPrescription!);
     }
-
-    private static PrescriptionDto MapToDto(Prescription p) => new(
-        p.Id,
-        p.PatientId,
-        p.Patient?.FullName ?? "Unknown",
-        p.MedicationName,
-        p.Dosage,
-        p.Frequency,
-        p.Quantity,
-        p.RefillsRemaining,
-        p.PrescriberName,
-        p.PrescribedDate,
-        p.ExpiryDate,
-        p.Instructions,
-        p.IsExpired,
-        p.CanRefill,
-        p.CreatedAt
-    );
 }
 

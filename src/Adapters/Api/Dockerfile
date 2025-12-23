@@ -5,6 +5,7 @@ WORKDIR /src
 # Copy solution and project files
 COPY *.slnx .
 COPY src/Entities/Entities.csproj src/Entities/
+COPY src/DTOs/DTOs.csproj src/DTOs/
 COPY src/Application/Application.csproj src/Application/
 COPY src/Adapters/Adapters.csproj src/Adapters/
 

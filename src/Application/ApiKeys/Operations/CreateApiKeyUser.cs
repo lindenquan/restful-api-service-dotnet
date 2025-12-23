@@ -30,8 +30,9 @@ public record CreateApiKeyUserResult(
 
 /// <summary>
 /// Validator for CreateApiKeyUserCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class CreateApiKeyUserCommandValidator : AbstractValidator<CreateApiKeyUserCommand>
+public sealed class CreateApiKeyUserCommandValidator : AbstractValidator<CreateApiKeyUserCommand>
 {
     public CreateApiKeyUserCommandValidator()
     {
@@ -51,8 +52,9 @@ public class CreateApiKeyUserCommandValidator : AbstractValidator<CreateApiKeyUs
 
 /// <summary>
 /// Handler for CreateApiKeyUserCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class CreateApiKeyUserHandler : IRequestHandler<CreateApiKeyUserCommand, CreateApiKeyUserResult>
+public sealed class CreateApiKeyUserHandler : IRequestHandler<CreateApiKeyUserCommand, CreateApiKeyUserResult>
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IApiKeyGenerator _apiKeyGenerator;

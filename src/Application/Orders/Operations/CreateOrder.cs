@@ -18,8 +18,9 @@ public record CreateOrderCommand(
 
 /// <summary>
 /// Handler for CreateOrderCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, InternalOrderDto>
+public sealed class CreateOrderHandler : IRequestHandler<CreateOrderCommand, InternalOrderDto>
 {
     private readonly IUnitOfWork _unitOfWork;
 

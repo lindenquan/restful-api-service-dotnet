@@ -4,8 +4,9 @@ namespace Application.Orders.Operations;
 
 /// <summary>
 /// Validator for CreateOrderCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
+public sealed class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
 {
     public CreateOrderValidator()
     {

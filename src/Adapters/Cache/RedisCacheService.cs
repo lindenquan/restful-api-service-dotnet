@@ -7,8 +7,9 @@ namespace Adapters.Cache;
 /// <summary>
 /// L2 Redis-based distributed cache service implementation.
 /// Supports pub/sub for cache invalidation in Strong consistency mode.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class RedisCacheService : ICacheService, IDisposable
+public sealed class RedisCacheService : ICacheService, IDisposable
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly IDatabase _database;

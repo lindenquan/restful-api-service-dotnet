@@ -2,6 +2,7 @@ using Adapters.Api.Authorization;
 using Adapters.Api.Services;
 using Application.ApiKeys.Operations;
 using Asp.Versioning;
+using DTOs.Shared;
 using Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -28,17 +29,17 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new API key user.
+    /// Create a new user with API key.
     /// The plain-text API key is returned ONLY in this response - store it securely!
     /// </summary>
     [HttpPost("api-keys")]
-    [ProducesResponseType(typeof(CreateApiKeyResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(CreateUserResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<CreateApiKeyResponse>> CreateApiKey(
-        [FromBody] CreateApiKeyRequest request,
+    public async Task<ActionResult<CreateUserResponse>> CreateApiKey(
+        [FromBody] CreateUserRequest request,
         CancellationToken ct)
     {
         var command = new CreateApiKeyUserCommand(
@@ -52,7 +53,7 @@ public class AdminController : ControllerBase
         {
             var result = await _mediator.Send(command, ct);
 
-            var response = new CreateApiKeyResponse(
+            var response = new CreateUserResponse(
                 UserId: result.UserId,
                 ApiKey: result.ApiKey,
                 ApiKeyPrefix: result.ApiKeyPrefix,
@@ -69,26 +70,4 @@ public class AdminController : ControllerBase
         }
     }
 }
-
-/// <summary>
-/// Request to create a new API key user.
-/// </summary>
-public record CreateApiKeyRequest(
-    string UserName,
-    string Email,
-    UserType UserType,
-    string? Description = null);
-
-/// <summary>
-/// Response containing the newly created API key.
-/// WARNING: The ApiKey is shown ONLY in this response!
-/// </summary>
-public record CreateApiKeyResponse(
-    int UserId,
-    string ApiKey,
-    string ApiKeyPrefix,
-    string UserName,
-    string Email,
-    string UserType,
-    string Message);
 

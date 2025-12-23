@@ -41,8 +41,9 @@ public interface ICurrentUserService
 
 /// <summary>
 /// Implementation that reads user info from HttpContext claims.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class CurrentUserService : ICurrentUserService
+public sealed class CurrentUserService : ICurrentUserService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
 

@@ -1,0 +1,82 @@
+# ============================================
+# AWS EKS Dockerfile for .NET 10 API
+# ============================================
+# This Dockerfile creates an optimized container image for AWS EKS (Kubernetes)
+# with multi-stage build, non-root user, and production best practices.
+#
+# Build: docker build -f Dockerfile.eks -t prescription-api-eks:latest .
+# Run: docker run -p 8080:8080 -e ASPNETCORE_ENVIRONMENT=Production prescription-api-eks:latest
+#
+# Deploy to AWS EKS:
+# 1. Tag: docker tag prescription-api-eks:latest <account-id>.dkr.ecr.<region>.amazonaws.com/prescription-api-eks:latest
+# 2. Push: docker push <account-id>.dkr.ecr.<region>.amazonaws.com/prescription-api-eks:latest
+# 3. Deploy using kubectl or Helm charts
+# ============================================
+
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy solution and project files
+COPY RestfulApiService.slnx .
+COPY src/Entities/Entities.csproj src/Entities/
+COPY src/DTOs/DTOs.csproj src/DTOs/
+COPY src/Contracts/Contracts.csproj src/Contracts/
+COPY src/Application/Application.csproj src/Application/
+COPY src/Adapters/Adapters.csproj src/Adapters/
+COPY src/Adapters/ApiClient/ApiClient.csproj src/Adapters/ApiClient/
+
+# Restore dependencies
+RUN dotnet restore src/Adapters/Adapters.csproj
+
+# Copy source code
+COPY src/ src/
+
+# Build and publish with optimizations
+WORKDIR /src/src/Adapters
+RUN dotnet publish Adapters.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore \
+    /p:PublishReadyToRun=true \
+    /p:PublishSingleFile=false \
+    /p:PublishTrimmed=false
+
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+# Install curl for health checks
+RUN apt-get update && \
+    apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+WORKDIR /app
+
+# Copy published app
+COPY --from=build /app/publish .
+
+# Change ownership to non-root user
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port (EKS will map this)
+EXPOSE 8080
+
+# Environment variables
+ENV ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_ENVIRONMENT=Production \
+    DOTNET_RUNNING_IN_CONTAINER=true \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+
+# Health check (Kubernetes will use this)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Entry point
+ENTRYPOINT ["dotnet", "Adapters.dll"]
+

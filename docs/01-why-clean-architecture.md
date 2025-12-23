@@ -84,31 +84,146 @@ N-Layer doesn't prevent the UI from "knowing" about the Database. It's tempting 
 
 ---
 
-## The Core Difference: Dependency Inversion
+## The Core Difference: Dependency Inversion Principle (DIP)
 
-| N-Layer | Clean Architecture |
+**DIP is the foundation of Clean Architecture.** It's one of the SOLID principles and states:
+
+> **High-level policy (business rules) should not depend on low-level details (databases, frameworks).**
+> **Both should depend on abstractions (interfaces).**
+
+### Traditional N-Layer VIOLATES DIP ❌
+
+In N-Layer, dependencies flow downward:
+
+```
+┌─────────────────────────────┐
+│  Business Logic Layer (BLL) │  ← High-level policy
+│         ↓ depends on         │
+│   Data Access Layer (DAL)   │  ← Low-level detail
+│         ↓ depends on         │
+│        Database (SQL)       │  ← Low-level detail
+└─────────────────────────────┘
+```
+
+**The Problem:**
+- BLL directly depends on DAL (concrete implementation)
+- Changing from SQL to MongoDB requires rewriting BLL
+- Testing BLL requires setting up a real database
+- **High-level policy is enslaved to low-level details**
+
+### Clean Architecture FOLLOWS DIP ✅
+
+In Clean Architecture, dependencies flow inward through abstractions:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              Infrastructure Layer                        │
+│  MongoOrderRepository implements IOrderRepository       │
+│         ↑ depends on (implements)                        │
+├─────────────────────────────────────────────────────────┤
+│              Application Layer                           │
+│  CreateOrderHandler uses IOrderRepository               │
+│         ↑ depends on (defines)                           │
+├─────────────────────────────────────────────────────────┤
+│              Domain Layer                                │
+│  IOrderRepository interface (abstraction)               │
+│  Order entity (business rules)                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**The Solution:**
+- Application defines `IOrderRepository` interface (abstraction)
+- Infrastructure implements `MongoOrderRepository` (concrete)
+- Application depends on abstraction, not concrete implementation
+- **High-level policy controls low-level details through contracts**
+
+### How DIP Works in This Project
+
+| N-Layer | Clean Architecture (DIP) |
 |---------|-------------------|
 | BLL → DAL (depends on database) | Domain ← Infrastructure (database depends on domain) |
 | Outer layers define contracts | **Inner layers define contracts (interfaces)** |
 | Database is the foundation | **Business rules are the foundation** |
+
+### Code Example: DIP in Action
+
+**❌ N-Layer (Violates DIP):**
+```csharp
+// Business Logic Layer
+public class OrderService
+{
+    private readonly SqlOrderRepository _repository;  // ❌ Depends on concrete implementation
+
+    public OrderService()
+    {
+        _repository = new SqlOrderRepository();  // ❌ Tightly coupled to SQL
+    }
+
+    public void CreateOrder(Order order)
+    {
+        _repository.Save(order);  // ❌ Can't swap to MongoDB without rewriting
+    }
+}
+```
+
+**✅ Clean Architecture (Follows DIP):**
+```csharp
+// Application Layer (defines interface)
+public interface IOrderRepository  // ✅ Abstraction defined by high-level policy
+{
+    Task AddAsync(Order order, CancellationToken ct);
+}
+
+public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderDto>
+{
+    private readonly IOrderRepository _repository;  // ✅ Depends on abstraction
+
+    public CreateOrderHandler(IOrderRepository repository)
+    {
+        _repository = repository;  // ✅ Injected (can be ANY implementation)
+    }
+
+    public async Task<OrderDto> Handle(CreateOrderCommand request, CancellationToken ct)
+    {
+        var order = new Order { /* ... */ };
+        await _repository.AddAsync(order, ct);  // ✅ Works with SQL, Mongo, InMemory
+        return /* ... */;
+    }
+}
+
+// Infrastructure Layer (implements interface)
+public sealed class MongoOrderRepository : IOrderRepository  // ✅ Implements abstraction
+{
+    public async Task AddAsync(Order order, CancellationToken ct)
+    {
+        // MongoDB-specific implementation
+    }
+}
+```
+
+**Benefits:**
+- ✅ `CreateOrderHandler` has **zero knowledge** of MongoDB
+- ✅ Swap MongoDB → SQL by changing DI registration (1 line)
+- ✅ Test with `InMemoryOrderRepository` (no database needed)
+- ✅ Business logic is **independent** of infrastructure
 
 ### How Clean Architecture Stays "Clean"
 
 The key principle: **Inner layers define interfaces, outer layers implement them.**
 
 ```
-Domain Layer:
+Application Layer (defines contracts):
 ├── IOrderRepository.cs      ← Interface (contract)
 ├── ICacheService.cs         ← Interface (contract)
-└── Order.cs                 ← Entity (pure business logic)
+└── CreateOrderHandler.cs    ← Uses IOrderRepository
 
-Infrastructure Layer:
+Infrastructure Layer (implements contracts):
 ├── MongoOrderRepository.cs  → Implements IOrderRepository
 ├── RedisCacheService.cs     → Implements ICacheService
 └── InMemoryOrderRepository.cs → Implements IOrderRepository (for testing)
 ```
 
-**Result:** The Domain layer has **zero dependencies** on databases, frameworks, or external services. It contains pure C# business logic.
+**Result:** The Application layer has **zero dependencies** on databases, frameworks, or external services. It contains pure C# business logic.
 
 ---
 

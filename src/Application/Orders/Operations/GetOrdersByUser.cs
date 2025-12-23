@@ -12,8 +12,9 @@ public record GetOrdersByPatientQuery(int PatientId) : IRequest<IEnumerable<Inte
 
 /// <summary>
 /// Handler for GetOrdersByPatientQuery.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class GetOrdersByPatientHandler : IRequestHandler<GetOrdersByPatientQuery, IEnumerable<InternalOrderDto>>
+public sealed class GetOrdersByPatientHandler : IRequestHandler<GetOrdersByPatientQuery, IEnumerable<InternalOrderDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
 

@@ -12,8 +12,9 @@ public record GetAllOrdersQuery : IRequest<IEnumerable<InternalOrderDto>>;
 
 /// <summary>
 /// Handler for GetAllOrdersQuery.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class GetAllOrdersHandler : IRequestHandler<GetAllOrdersQuery, IEnumerable<InternalOrderDto>>
+public sealed class GetAllOrdersHandler : IRequestHandler<GetAllOrdersQuery, IEnumerable<InternalOrderDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
 

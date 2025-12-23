@@ -12,8 +12,9 @@ public record GetOrderByIdQuery(int OrderId) : IRequest<InternalOrderDto?>;
 
 /// <summary>
 /// Handler for GetOrderByIdQuery.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, InternalOrderDto?>
+public sealed class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, InternalOrderDto?>
 {
     private readonly IUnitOfWork _unitOfWork;
 

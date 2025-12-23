@@ -11,14 +11,15 @@ This project follows **Clean Architecture** with a **hybrid file organization**:
 ```
 src/
 ├── Entities/            # Core business entities (no dependencies)
+├── DTOs/                # Shared DTOs for all API versions and adapters
 ├── Application/         # Use cases, operations (feature-based)
 └── Adapters/            # Interface implementations
     ├── Api/             # HTTP layer, controllers, middleware
     └── Persistence/     # Database, cache, external services
 
 tests/
-├── Tests/               # Unit tests (mirrors src/ structure)
-└── Tests.E2E/           # End-to-end integration tests
+├── Tests/          # Unit tests (business logic + L1 cache)
+└── Tests.Api.E2E/  # API E2E tests (MongoDB + Redis integration)
 
 tools/
 └── DatabaseMigrations/  # MongoDB index creation
@@ -40,8 +41,35 @@ Entities/
 ├── PrescriptionOrder.cs    # Prescription Order aggregate
 ├── User.cs                 # User entity
 ├── Prescription.cs         # Prescription entity
+├── Patient.cs              # Patient entity
 └── ApiKeyUser.cs           # API key authentication entity
 ```
+
+### DTOs Layer (`src/DTOs/`)
+
+**Shared DTOs for all API versions and adapters** — independent project with no business logic.
+
+```
+DTOs/
+├── Shared/                 # Shared DTOs across all API versions
+│   └── UserDto.cs          # CreateUserRequest, CreateUserResponse
+│
+├── V1/                     # API Version 1 DTOs
+│   ├── OrderDto.cs         # V1 Order response
+│   ├── CreateOrderRequest.cs
+│   └── UpdateOrderRequest.cs
+│
+└── V2/                     # API Version 2 DTOs
+    ├── PrescriptionOrderDto.cs  # V2 Order response
+    ├── CreatePrescriptionOrderRequest.cs
+    └── UpdatePrescriptionOrderRequest.cs
+```
+
+**Key Benefits:**
+- ✅ **Shared across adapters** - Can be used by API, gRPC, GraphQL, etc.
+- ✅ **Version isolation** - V1 and V2 DTOs are completely separate
+- ✅ **No business logic** - Pure data transfer objects
+- ✅ **Independent deployment** - Can be packaged as NuGet for clients
 
 ### Application Layer (`src/Application/`)
 
@@ -59,32 +87,31 @@ Application/
 │   │   ├── GetOrderById.cs
 │   │   ├── GetAllOrders.cs
 │   │   └── GetOrdersByUser.cs
-│   ├── Shared/
-│   │   ├── InternalOrderDto.cs    # Internal representation
-│   │   └── EntityToInternalDto.cs # Mapper
-│   ├── V1/                        # API Version 1
-│   │   ├── DTOs/OrderDto.cs
-│   │   └── Mappers/OrderMapper.cs
-│   └── V2/                        # API Version 2
-│       ├── DTOs/PrescriptionOrderDto.cs
-│       └── Mappers/PrescriptionOrderMapper.cs
+│   └── Shared/
+│       ├── InternalOrderDto.cs    # Internal representation (Status: OrderStatus enum)
+│       └── EntityToInternalDto.cs # Entity → Internal DTO mapper
 │
 ├── Users/                      # Feature: User Management
 │   └── Operations/
 │
 ├── Prescriptions/              # Feature: Prescription Management
-│   └── Operations/
+│   ├── Operations/
+│   └── Shared/
+│       ├── InternalPrescriptionDto.cs  # Internal representation
+│       └── EntityToInternalDto.cs      # Entity → Internal DTO mapper
 │
 ├── ApiKeys/                    # Feature: API Key Management (Admin)
 │   └── Operations/
 │
 ├── Behaviors/                  # MediatR Pipeline Behaviors
 │   ├── LoggingBehavior.cs
-│   └── ValidationBehavior.cs
+│   ├── ValidationBehavior.cs
+│   └── CachingBehavior.cs
 │
 ├── Interfaces/                 # Abstractions for Infrastructure
 │   ├── Repositories/
 │   │   ├── IRepository.cs
+│   │   ├── IUnitOfWork.cs
 │   │   └── IOrderRepository.cs
 │   └── Services/
 │       ├── ICacheService.cs
@@ -92,6 +119,14 @@ Application/
 │
 └── DependencyInjection.cs      # MediatR, FluentValidation registration
 ```
+
+**Key Principles:**
+- ✅ **Consistent structure** - Every feature has `Operations/` and `Shared/`
+- ✅ **Internal DTOs in Shared/** - `InternalXxxDto` for each feature
+- ✅ **Type safety** - Internal DTOs use enums (e.g., `OrderStatus` not string)
+- ✅ **Mappers in Shared/** - `EntityToInternalDto` for each feature
+- ✅ **External DTOs separate** - Versioned DTOs in `src/DTOs` project
+- ✅ **Cross-version DTOs** - Shared DTOs in `src/DTOs/Shared/` for common types
 
 ### Adapters Layer (`src/Adapters/`)
 

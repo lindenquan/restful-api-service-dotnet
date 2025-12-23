@@ -1,19 +1,20 @@
-using Application.DTOs;
 using Application.Interfaces.Repositories;
-using Entities;
+using Application.Prescriptions.Shared;
 using MediatR;
 
 namespace Application.Prescriptions.Operations;
 
 /// <summary>
 /// Query to get a prescription by ID.
+/// Uses internal DTO - controllers map to/from versioned DTOs.
 /// </summary>
-public record GetPrescriptionByIdQuery(int PrescriptionId) : IRequest<PrescriptionDto?>;
+public record GetPrescriptionByIdQuery(int PrescriptionId) : IRequest<InternalPrescriptionDto?>;
 
 /// <summary>
 /// Handler for GetPrescriptionByIdQuery.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class GetPrescriptionByIdHandler : IRequestHandler<GetPrescriptionByIdQuery, PrescriptionDto?>
+public sealed class GetPrescriptionByIdHandler : IRequestHandler<GetPrescriptionByIdQuery, InternalPrescriptionDto?>
 {
     private readonly IUnitOfWork _unitOfWork;
 
@@ -22,31 +23,10 @@ public class GetPrescriptionByIdHandler : IRequestHandler<GetPrescriptionByIdQue
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<PrescriptionDto?> Handle(GetPrescriptionByIdQuery request, CancellationToken ct)
+    public async Task<InternalPrescriptionDto?> Handle(GetPrescriptionByIdQuery request, CancellationToken ct)
     {
         var prescription = await _unitOfWork.Prescriptions.GetByIdWithPatientAsync(request.PrescriptionId, ct);
-        if (prescription == null)
-            return null;
-
-        return MapToDto(prescription);
+        return prescription == null ? null : EntityToInternalDto.Map(prescription);
     }
-
-    private static PrescriptionDto MapToDto(Prescription p) => new(
-        p.Id,
-        p.PatientId,
-        p.Patient?.FullName ?? "Unknown",
-        p.MedicationName,
-        p.Dosage,
-        p.Frequency,
-        p.Quantity,
-        p.RefillsRemaining,
-        p.PrescriberName,
-        p.PrescribedDate,
-        p.ExpiryDate,
-        p.Instructions,
-        p.IsExpired,
-        p.CanRefill,
-        p.CreatedAt
-    );
 }
 

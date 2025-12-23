@@ -1,9 +1,9 @@
 using Adapters.Api.Authorization;
+using Adapters.Api.Controllers.V1.Mappers;
 using Adapters.Api.Services;
 using Application.Orders.Operations;
-using Application.Orders.V1.DTOs;
-using Application.Orders.V1.Mappers;
 using Asp.Versioning;
+using DTOs.V1;
 using Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;

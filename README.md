@@ -14,6 +14,7 @@ A production-ready REST API built with **.NET 10** and **Clean Architecture**.
 - ✅ Comprehensive test suite
 - ✅ Security Headers
 - ✅ Health Checks (MongoDB, Redis, external services)
+- ✅ Blazor WebAssembly client with type-safe API clients (Refit)
 
 ---
 
@@ -67,16 +68,23 @@ just docker-down  # Stop services
 
 | Command | Description |
 |---------|-------------|
-| `just dev` | Run locally with dev profile |
+| **API Commands** | |
+| `just dev` | Run API in dev mode (Swagger enabled) |
 | `just build` | Build the solution |
 | `just test` | Run unit tests |
 | `just test-coverage` | Run tests with coverage |
-| `just test-e2e` | Run E2E tests |
-| `just docker-e2e-down` | Stop E2E dependencies |
+| `just test-api-e2e` | Run API E2E tests (requires docker-compose) |
 | `just format` | Format code |
 | `just clean` | Clean build artifacts |
-| `just docker-up` | Start Docker services |
-| `just docker-down` | Stop Docker services |
+| **Web App Commands** | |
+| `just web-clean` | Clean Web app build artifacts |
+| `just web-build` | Build Web app |
+| `just web-test` | Run Web app unit tests |
+| `just web-dev` | Run Web app in dev mode |
+| `just web-preview` | Build and run from dist folder |
+| **Docker Commands** | |
+| `just docker-up` | Start MongoDB + Redis |
+| `just docker-down` | Stop MongoDB + Redis |
 
 ---
 
@@ -85,14 +93,18 @@ just docker-down  # Stop services
 ```
 ├── src/
 │   ├── Entities/         # Core business entities (no dependencies)
+│   ├── DTOs/             # Shared DTOs for all API versions (independent project)
+│   ├── Contracts/        # Pure API contracts (shared between server & client)
 │   ├── Application/      # Use cases, operations, validators
-│   └── Adapters/         # Interface implementations
-│       ├── Api/          # Controllers, middleware, configuration
-│       └── Persistence/  # Database, cache, external services
+│   ├── Adapters/         # Interface implementations
+│   │   ├── Api/          # Controllers, middleware, configuration
+│   │   ├── ApiClient/    # Type-safe HTTP clients (Refit)
+│   │   └── Persistence/  # Database, cache, external services
+│   └── Web/              # Blazor WebAssembly client
 │
 ├── tests/
-│   ├── Tests/            # Unit tests
-│   └── Tests.E2E/        # End-to-end integration tests
+│   ├── Tests/           # Unit tests (business logic + L1 cache)
+│   └── Tests.Api.E2E/   # API E2E tests (MongoDB + Redis integration)
 │
 ├── tools/
 │   └── DatabaseMigrations/  # MongoDB index creation
@@ -108,7 +120,7 @@ just docker-down  # Stop services
 
 | Document | Description |
 |----------|-------------|
-| [Why Clean Architecture](docs/01-why-clean-architecture.md) | N-Layer vs Clean Architecture comparison |
+| [Why Clean Architecture](docs/01-why-clean-architecture.md) | N-Layer vs Clean Architecture, DIP explained |
 | [Project Structure](docs/02-project-structure.md) | Folder organization and navigation |
 | [API Versioning](docs/04-api-versioning.md) | Version strategy and DTO mapping |
 | [Authentication & Authorization](docs/05-authentication-authorization.md) | API keys, user types, permissions |
@@ -116,6 +128,10 @@ just docker-down  # Stop services
 | [Testing Strategy](docs/07-testing-strategy.md) | Unit tests vs E2E tests approach |
 | [Docker Deployment](docs/08-docker-deployment.md) | Container setup and deployment |
 | [Caching Strategy](docs/09-caching-strategy.md) | L1/L2 cache configuration and usage |
+| [CancellationToken Best Practices](docs/10-cancellation-tokens.md) | Graceful cancellation and resource management |
+| [Sealed Classes](docs/11-sealed-classes.md) | Performance optimization with sealed keyword |
+| [Blazor WASM + API Client](docs/12-blazor-wasm-api-client.md) | Type-safe API clients with Refit and Blazor WebAssembly |
+| [API Client E2E Testing](docs/13-api-client-e2e-testing.md) | Full-stack E2E tests using typed API clients |
 
 ---
 

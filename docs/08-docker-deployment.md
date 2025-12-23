@@ -73,7 +73,7 @@ Separate compose file for E2E tests:
 docker-compose -f docker-compose.e2e.yml up -d
 
 # Run tests
-dotnet test tests/Tests.E2E
+dotnet test tests/Tests.ApiClient.E2E
 
 # Clean up
 docker-compose -f docker-compose.e2e.yml down -v

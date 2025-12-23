@@ -10,8 +10,9 @@ namespace Application.Behaviors;
 /// Queries implementing ICacheableQuery are automatically cached.
 /// Commands implementing ICacheInvalidatingCommand automatically invalidate cache.
 /// This makes caching invisible to handlers and other layers.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public sealed class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
     private readonly ICacheService _cache;

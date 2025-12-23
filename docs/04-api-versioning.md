@@ -55,23 +55,35 @@ The system uses a **three-layer DTO mapping** strategy:
 ## File Structure
 
 ```
-Application/Orders/
-├── Shared/
-│   ├── InternalOrderDto.cs       # Internal representation (all fields)
-│   └── EntityToInternalDto.cs    # Entity → Internal mapper
+src/
+├── DTOs/                         # Shared DTOs project (independent)
+│   ├── V1/
+│   │   ├── OrderDto.cs           # V1 external DTO (simplified)
+│   │   ├── CreateOrderRequest.cs
+│   │   └── UpdateOrderRequest.cs
+│   │
+│   └── V2/
+│       ├── PrescriptionOrderDto.cs  # V2 external DTO (detailed)
+│       ├── CreatePrescriptionOrderRequest.cs
+│       └── UpdatePrescriptionOrderRequest.cs
 │
-├── V1/
-│   ├── DTOs/
-│   │   └── OrderDto.cs           # V1 external DTO (simplified)
-│   └── Mappers/
-│       └── OrderMapper.cs        # Internal → V1 DTO
+├── Application/Orders/
+│   └── Shared/
+│       ├── InternalOrderDto.cs       # Internal DTO (Status: OrderStatus enum)
+│       └── EntityToInternalDto.cs    # Entity → Internal mapper
 │
-└── V2/
-    ├── DTOs/
-    │   └── PrescriptionOrderDto.cs  # V2 external DTO (detailed)
-    └── Mappers/
-        └── PrescriptionOrderMapper.cs  # Internal → V2 DTO
+└── Adapters/Api/Controllers/
+    ├── V1/Mappers/
+    │   └── OrderMapper.cs            # Internal DTO → V1 DTO (enum → string)
+    │
+    └── V2/Mappers/
+        └── PrescriptionOrderMapper.cs  # Internal DTO → V2 DTO (enum → string)
 ```
+
+**Key Improvements:**
+- ✅ **DTOs in separate project** - Can be shared across all adapters (API, gRPC, etc.)
+- ✅ **Type-safe InternalOrderDto** - Uses `OrderStatus` enum (not string)
+- ✅ **Mappers in Adapters** - Conversion logic at the boundary (enum → string)
 
 ---
 
@@ -80,110 +92,144 @@ Application/Orders/
 ### V1 DTO (Simplified)
 
 ```csharp
-// Application/Orders/V1/DTOs/OrderDto.cs
+// src/DTOs/V1/OrderDto.cs
 public record OrderDto(
-    Guid Id,
-    string Status,
-    DateTime CreatedAt
+    int Id,
+    int PatientId,
+    string CustomerName,      // V1 naming: CustomerName
+    int PrescriptionId,
+    string Medication,        // V1 naming: Medication
+    DateTime OrderDate,
+    string Status,            // ← String for external API
+    string? Notes
 );
 ```
 
 ### V2 DTO (Detailed)
 
 ```csharp
-// Application/Orders/V2/DTOs/PrescriptionOrderDto.cs
+// src/DTOs/V2/PrescriptionOrderDto.cs
 public record PrescriptionOrderDto(
-    Guid Id,
-    Guid UserId,
-    Guid PrescriptionId,
-    string Status,
+    int Id,
+    int PatientId,
+    string PatientName,       // V2 naming: PatientName
+    int PrescriptionId,
+    string MedicationName,    // V2 naming: MedicationName
+    string Dosage,            // V2 includes dosage
+    DateTime OrderDate,
+    string Status,            // ← String for external API
     string? Notes,
-    DateTime CreatedAt,
-    DateTime? UpdatedAt,
-    string CreatedBy,
-    string? UpdatedBy
+    DateTime? FulfilledDate,  // V2 includes fulfillment tracking
+    DateTime? PickupDate,     // V2 includes pickup tracking
+    DateTime CreatedAt,       // V2 includes audit fields
+    DateTime? UpdatedAt
 );
 ```
 
-### Internal DTO (Complete)
+### Internal DTO (Complete, Type-Safe)
 
 ```csharp
-// Application/Orders/Shared/InternalOrderDto.cs
+// src/Application/Orders/Shared/InternalOrderDto.cs
 public record InternalOrderDto(
-    Guid Id,
-    Guid UserId,
-    Guid PrescriptionId,
-    OrderStatus Status,
+    int Id,
+    int PatientId,
+    string PatientName,
+    int PrescriptionId,
+    string MedicationName,
+    string Dosage,
+    DateTime OrderDate,
+    OrderStatus Status,       // ← Enum for type safety (not string!)
     string? Notes,
+    DateTime? FulfilledDate,
+    DateTime? PickupDate,
     DateTime CreatedAt,
-    DateTime? UpdatedAt,
-    string CreatedBy,
-    string? UpdatedBy,
-    bool IsDeleted,
-    DateTime? DeletedAt,
-    string? DeletedBy
+    DateTime? UpdatedAt
 );
 ```
+
+**Key Difference:**
+- ✅ **External DTOs** (V1, V2): `Status` is `string` for API flexibility
+- ✅ **Internal DTO**: `Status` is `OrderStatus` enum for type safety
+- ✅ **Mappers** handle the conversion at the adapter boundary
 
 ---
 
 ## Mappers
 
-### Entity → Internal
+### Entity → Internal DTO (Application Layer)
 
 ```csharp
-// Application/Orders/Shared/EntityToInternalDto.cs
+// src/Application/Orders/Shared/EntityToInternalDto.cs
 public static class EntityToInternalDto
 {
-    public static InternalOrderDto Map(Order entity) => new(
-        entity.Id,
-        entity.UserId,
-        entity.PrescriptionId,
-        entity.Status,
-        entity.Notes,
-        entity.CreatedAt,
-        entity.UpdatedAt,
-        entity.CreatedBy,
-        entity.UpdatedBy,
-        entity.IsDeleted,
-        entity.DeletedAt,
-        entity.DeletedBy
+    public static InternalOrderDto Map(PrescriptionOrder order) => new(
+        Id: order.Id,
+        PatientId: order.PatientId,
+        PatientName: order.Patient?.FullName ?? "Unknown",
+        PrescriptionId: order.PrescriptionId,
+        MedicationName: order.Prescription?.MedicationName ?? "Unknown",
+        Dosage: order.Prescription?.Dosage ?? "",
+        OrderDate: order.OrderDate,
+        Status: order.Status,  // ← Keep as enum (type-safe!)
+        Notes: order.Notes,
+        FulfilledDate: order.FulfilledDate,
+        PickupDate: order.PickupDate,
+        CreatedAt: order.CreatedAt,
+        UpdatedAt: order.UpdatedAt
     );
 }
 ```
 
-### Internal → V1 External
+### Internal DTO → V1 DTO (Adapter Layer)
 
 ```csharp
-// Application/Orders/V1/Mappers/OrderMapper.cs
+// src/Adapters/Api/Controllers/V1/Mappers/OrderMapper.cs
 public static class OrderMapper
 {
-    public static OrderDto ToDto(InternalOrderDto order) => new(
-        order.Id,
-        order.Status.ToString(),  // Enum to string
-        order.CreatedAt
+    public static OrderDto ToV1Dto(InternalOrderDto internalDto) => new(
+        Id: internalDto.Id,
+        PatientId: internalDto.PatientId,
+        CustomerName: internalDto.PatientName,
+        PrescriptionId: internalDto.PrescriptionId,
+        Medication: internalDto.MedicationName,
+        OrderDate: internalDto.OrderDate,
+        Status: internalDto.Status.ToString(),  // ← Convert enum to string
+        Notes: internalDto.Notes
     );
 }
 ```
 
-### Internal → V2 External
+### Internal DTO → V2 DTO (Adapter Layer)
 
 ```csharp
-// Application/Orders/V2/Mappers/PrescriptionOrderMapper.cs
+// src/Adapters/Api/Controllers/V2/Mappers/PrescriptionOrderMapper.cs
 public static class PrescriptionOrderMapper
 {
-    public static PrescriptionOrderDto ToDto(InternalOrderDto order) => new(
-        order.Id,
-        order.UserId,
-        order.PrescriptionId,
-        order.Status.ToString(),
-        order.Notes,
-        order.CreatedAt,
-        order.UpdatedAt,
-        order.CreatedBy,
-        order.UpdatedBy
+    public static PrescriptionOrderDto ToV2Dto(InternalOrderDto internalDto) => new(
+        Id: internalDto.Id,
+        PatientId: internalDto.PatientId,
+        PatientName: internalDto.PatientName,
+        PrescriptionId: internalDto.PrescriptionId,
+        MedicationName: internalDto.MedicationName,
+        Dosage: internalDto.Dosage,
+        OrderDate: internalDto.OrderDate,
+        Status: internalDto.Status.ToString(),  // ← Convert enum to string
+        Notes: internalDto.Notes,
+        FulfilledDate: internalDto.FulfilledDate,
+        PickupDate: internalDto.PickupDate,
+        CreatedAt: internalDto.CreatedAt,
+        UpdatedAt: internalDto.UpdatedAt
     );
 }
+```
+
+**Mapping Flow:**
+```
+Entity (OrderStatus enum)
+    ↓ EntityToInternalDto.Map()
+InternalOrderDto (OrderStatus enum) ← Type-safe in Application layer
+    ↓ OrderMapper.ToV1Dto() / PrescriptionOrderMapper.ToV2Dto()
+External DTOs (string) ← Converted at adapter boundary
 ```
 
 ---

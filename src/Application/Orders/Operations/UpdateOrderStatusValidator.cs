@@ -4,8 +4,9 @@ namespace Application.Orders.Operations;
 
 /// <summary>
 /// Validator for UpdateOrderStatusCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class UpdateOrderStatusValidator : AbstractValidator<UpdateOrderStatusCommand>
+public sealed class UpdateOrderStatusValidator : AbstractValidator<UpdateOrderStatusCommand>
 {
     public UpdateOrderStatusValidator()
     {

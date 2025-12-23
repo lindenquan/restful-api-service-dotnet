@@ -1,6 +1,7 @@
 using Adapters.Api.Controllers.V1;
 using Adapters.Api.Services;
 using Application.ApiKeys.Operations;
+using DTOs.Shared;
 using Entities;
 using FluentAssertions;
 using MediatR;
@@ -33,7 +34,7 @@ public class AdminControllerTests
     public async Task CreateApiKey_WithValidRequest_ShouldReturnCreatedResult()
     {
         // Arrange
-        var request = new CreateApiKeyRequest(
+        var request = new CreateUserRequest(
             UserName: "new-user",
             Email: "new@example.com",
             UserType: UserType.Regular,
@@ -56,7 +57,7 @@ public class AdminControllerTests
 
         // Assert
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
-        var response = createdResult.Value.Should().BeOfType<CreateApiKeyResponse>().Subject;
+        var response = createdResult.Value.Should().BeOfType<CreateUserResponse>().Subject;
 
         response.UserId.Should().Be(1);
         response.ApiKey.Should().Be("generated-api-key");
@@ -70,7 +71,7 @@ public class AdminControllerTests
     public async Task CreateApiKey_WithDuplicateEmail_ShouldReturnConflict()
     {
         // Arrange
-        var request = new CreateApiKeyRequest(
+        var request = new CreateUserRequest(
             UserName: "existing-user",
             Email: "existing@example.com",
             UserType: UserType.Regular);
@@ -90,7 +91,7 @@ public class AdminControllerTests
     public async Task CreateApiKey_ShouldPassCurrentUserAsCreatedBy()
     {
         // Arrange
-        var request = new CreateApiKeyRequest(
+        var request = new CreateUserRequest(
             UserName: "new-user",
             Email: "new@example.com",
             UserType: UserType.Admin);
@@ -114,7 +115,7 @@ public class AdminControllerTests
     public async Task CreateApiKey_AdminUser_ShouldSetCorrectUserType()
     {
         // Arrange
-        var request = new CreateApiKeyRequest(
+        var request = new CreateUserRequest(
             UserName: "admin-user",
             Email: "admin@example.com",
             UserType: UserType.Admin);

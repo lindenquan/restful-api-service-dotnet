@@ -5,8 +5,9 @@ namespace Adapters.Cache;
 /// <summary>
 /// Hybrid L1/L2 cache service that combines in-memory (L1) and Redis (L2) caching.
 /// Supports configurable consistency modes for each layer.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class HybridCacheService : ICacheService, IDisposable
+public sealed class HybridCacheService : ICacheService, IDisposable
 {
     private readonly MemoryCacheService? _l1Cache;
     private readonly RedisCacheService? _l2Cache;

@@ -13,8 +13,9 @@ public record GetOrdersByStatusQuery(OrderStatus Status) : IRequest<IEnumerable<
 
 /// <summary>
 /// Handler for GetOrdersByStatusQuery.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class GetOrdersByStatusHandler : IRequestHandler<GetOrdersByStatusQuery, IEnumerable<InternalOrderDto>>
+public sealed class GetOrdersByStatusHandler : IRequestHandler<GetOrdersByStatusQuery, IEnumerable<InternalOrderDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
 

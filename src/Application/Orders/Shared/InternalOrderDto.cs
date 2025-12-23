@@ -1,3 +1,5 @@
+using Entities;
+
 namespace Application.Orders.Shared;
 
 /// <summary>
@@ -6,6 +8,9 @@ namespace Application.Orders.Shared;
 ///
 /// For COMMANDS, the Command record itself (e.g., CreateOrderCommand)
 /// serves as the internal representation - no separate DTO needed.
+///
+/// IMPROVEMENT: Status is now OrderStatus enum (not string) for better type safety.
+/// Adapters are responsible for converting to string if needed for their external DTOs.
 /// </summary>
 public record InternalOrderDto(
     int Id,
@@ -15,7 +20,7 @@ public record InternalOrderDto(
     string MedicationName,
     string Dosage,
     DateTime OrderDate,
-    string Status,
+    OrderStatus Status,        // ← Changed from string to OrderStatus enum
     string? Notes,
     DateTime? FulfilledDate,
     DateTime? PickupDate,

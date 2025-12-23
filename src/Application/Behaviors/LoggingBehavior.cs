@@ -6,10 +6,11 @@ namespace Application.Behaviors;
 /// <summary>
 /// MediatR pipeline behavior for logging requests and responses.
 /// Logs before handling, after successful handling, and on exceptions.
+/// Sealed for performance optimization and design intent.
 /// </summary>
 /// <typeparam name="TRequest">The request type</typeparam>
 /// <typeparam name="TResponse">The response type</typeparam>
-public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+public sealed class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
     private readonly ILogger<LoggingBehavior<TRequest, TResponse>> _logger;

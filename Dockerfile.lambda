@@ -1,0 +1,60 @@
+# ============================================
+# AWS Lambda Dockerfile for .NET 10 API
+# ============================================
+# This Dockerfile creates a container image for AWS Lambda
+# using the AWS Lambda .NET runtime base image.
+#
+# Build: docker build -f Dockerfile.lambda -t prescription-api-lambda .
+# Test locally: docker run -p 9000:8080 prescription-api-lambda
+# Invoke: curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+#
+# Deploy to AWS Lambda:
+# 1. Tag: docker tag prescription-api-lambda:latest <account-id>.dkr.ecr.<region>.amazonaws.com/prescription-api-lambda:latest
+# 2. Push: docker push <account-id>.dkr.ecr.<region>.amazonaws.com/prescription-api-lambda:latest
+# 3. Create Lambda function using the ECR image
+# ============================================
+
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy solution and project files
+COPY RestfulApiService.slnx .
+COPY src/Entities/Entities.csproj src/Entities/
+COPY src/DTOs/DTOs.csproj src/DTOs/
+COPY src/Contracts/Contracts.csproj src/Contracts/
+COPY src/Application/Application.csproj src/Application/
+COPY src/Adapters/Adapters.csproj src/Adapters/
+COPY src/Adapters/ApiClient/ApiClient.csproj src/Adapters/ApiClient/
+
+# Restore dependencies
+RUN dotnet restore src/Adapters/Adapters.csproj
+
+# Copy source code
+COPY src/ src/
+
+# Build and publish
+WORKDIR /src/src/Adapters
+RUN dotnet publish Adapters.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore \
+    /p:PublishReadyToRun=true
+
+# Stage 2: Runtime (AWS Lambda .NET 10 base image)
+# Note: AWS Lambda base images for .NET 10 may not be available yet
+# Using .NET 8 Lambda base image as reference - update when .NET 10 is supported
+FROM public.ecr.aws/lambda/dotnet:8 AS runtime
+
+# Copy published app
+WORKDIR /var/task
+COPY --from=build /app/publish .
+
+# Set the Lambda handler
+# Format: Assembly::Namespace.ClassName::MethodName
+# For ASP.NET Core, we use the Lambda adapter
+ENV LAMBDA_HANDLER=Adapters::Amazon.Lambda.AspNetCoreServer.APIGatewayProxyFunction::FunctionHandlerAsync
+
+# Lambda runtime will call this handler
+CMD ["Adapters::Amazon.Lambda.AspNetCoreServer.APIGatewayProxyFunction::FunctionHandlerAsync"]
+

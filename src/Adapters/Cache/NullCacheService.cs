@@ -5,8 +5,9 @@ namespace Adapters.Cache;
 /// <summary>
 /// No-op cache service implementation used when caching is disabled.
 /// All operations are pass-through with no caching.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class NullCacheService : ICacheService
+public sealed class NullCacheService : ICacheService
 {
     public void Set<T>(string key, T value, TimeSpan? expiry = null)
     {

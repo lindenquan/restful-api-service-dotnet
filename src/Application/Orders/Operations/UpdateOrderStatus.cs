@@ -18,8 +18,9 @@ public record UpdateOrderStatusCommand(
 
 /// <summary>
 /// Handler for UpdateOrderStatusCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand, InternalOrderDto?>
+public sealed class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand, InternalOrderDto?>
 {
     private readonly IUnitOfWork _unitOfWork;
 

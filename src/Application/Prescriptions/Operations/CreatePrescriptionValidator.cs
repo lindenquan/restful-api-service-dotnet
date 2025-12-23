@@ -4,8 +4,9 @@ namespace Application.Prescriptions.Operations;
 
 /// <summary>
 /// Validator for CreatePrescriptionCommand.
+/// Sealed for performance optimization and design intent.
 /// </summary>
-public class CreatePrescriptionValidator : AbstractValidator<CreatePrescriptionCommand>
+public sealed class CreatePrescriptionValidator : AbstractValidator<CreatePrescriptionCommand>
 {
     public CreatePrescriptionValidator()
     {

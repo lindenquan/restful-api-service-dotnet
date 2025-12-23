@@ -58,7 +58,7 @@ public class GetOrderByIdHandlerTests
         // Assert
         result.Should().NotBeNull();
         result!.Id.Should().Be(1);
-        result.Status.Should().Be("Pending");
+        result.Status.Should().Be(OrderStatus.Pending);  // ← Now comparing enum, not string
         result.MedicationName.Should().Be("Aspirin");
         result.PatientName.Should().Be("John Doe");
     }
