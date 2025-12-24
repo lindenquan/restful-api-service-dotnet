@@ -39,7 +39,8 @@ public sealed class RedisCacheService : ICacheService, IDisposable
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
         };
 
         // Subscribe to invalidation channel for Strong consistency
@@ -99,8 +100,13 @@ public sealed class RedisCacheService : ICacheService, IDisposable
         {
             var fullKey = GetFullKey(key);
             var json = JsonSerializer.Serialize(value, _jsonOptions);
-            var actualExpiry = expiry ?? TimeSpan.FromSeconds(_cacheSettings.L2.TtlSeconds);
-            _database.StringSet(fullKey, json, actualExpiry);
+            // Use provided expiry, or get from settings (null means infinite TTL)
+            var actualExpiry = expiry ?? _cacheSettings.L2.GetTtl();
+            // Use Expiration.Default for infinite TTL, otherwise convert TimeSpan to Expiration
+            var redisExpiry = actualExpiry.HasValue
+                ? (Expiration)actualExpiry.Value
+                : Expiration.Default;
+            _database.StringSet(fullKey, json, redisExpiry);
         }
         catch (Exception ex)
         {

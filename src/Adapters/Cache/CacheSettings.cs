@@ -36,8 +36,14 @@ public class L1CacheSettings
     /// <summary>
     /// TTL for L1 cache entries in seconds.
     /// For Eventual consistency, keep this short (5-30 seconds).
+    /// Set to 0 or negative for infinite TTL (no expiration).
     /// </summary>
     public int TtlSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Gets the TTL as a TimeSpan, or null if TTL is infinite (TtlSeconds &lt;= 0).
+    /// </summary>
+    public TimeSpan? GetTtl() => TtlSeconds <= 0 ? null : TimeSpan.FromSeconds(TtlSeconds);
 
     /// <summary>
     /// Maximum number of items in L1 cache.
@@ -83,8 +89,14 @@ public class L2CacheSettings
 
     /// <summary>
     /// TTL for L2 cache entries in seconds.
+    /// Set to 0 or negative for infinite TTL (no expiration).
     /// </summary>
     public int TtlSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// Gets the TTL as a TimeSpan, or null if TTL is infinite (TtlSeconds &lt;= 0).
+    /// </summary>
+    public TimeSpan? GetTtl() => TtlSeconds <= 0 ? null : TimeSpan.FromSeconds(TtlSeconds);
 
     /// <summary>
     /// Redis connection timeout in milliseconds.

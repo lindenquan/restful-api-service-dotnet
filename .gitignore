@@ -78,7 +78,7 @@ node_modules/
 # Secrets
 *.pfx
 *.p12
-appsettings.*.local.json
+*.local.json
 secrets.json
 .env
 .env.*

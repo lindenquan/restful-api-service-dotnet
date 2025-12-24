@@ -23,7 +23,7 @@ public sealed class MemoryCacheServiceTests : IDisposable
             SizeLimit = 100
         };
         _memoryCache = new MemoryCache(options);
-        
+
         _settings = new CacheSettings
         {
             L1 = new L1CacheSettings
@@ -33,7 +33,7 @@ public sealed class MemoryCacheServiceTests : IDisposable
                 MaxItems = 100
             }
         };
-        
+
         _loggerMock = new Mock<ILogger<MemoryCacheService>>();
         _sut = new MemoryCacheService(_memoryCache, _settings, _loggerMock.Object);
     }

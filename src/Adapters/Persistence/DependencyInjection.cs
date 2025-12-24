@@ -46,8 +46,9 @@ public static class DependencyInjection
         services.AddSingleton(settings);
 
         // Register MongoDB client as singleton
+        // Use GetConnectionString() to inject username/password if provided
         services.AddSingleton<IMongoClient>(_ =>
-            new MongoClient(settings.ConnectionString));
+            new MongoClient(settings.GetConnectionString()));
 
         // Register Unit of Work as scoped
         services.AddScoped<IUnitOfWork, MongoUnitOfWork>();

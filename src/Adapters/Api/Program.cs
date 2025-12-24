@@ -8,16 +8,30 @@ using Adapters.Persistence;
 using Adapters.Persistence.Configuration;
 using Application;
 using Asp.Versioning;
+using DotNetEnv;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi;
+
+// Load .env file from solution root (must be done before WebApplication.CreateBuilder)
+// This allows setting ASPNETCORE_ENVIRONMENT and other variables in .env file
+var solutionRoot = FindSolutionRoot(Directory.GetCurrentDirectory());
+if (solutionRoot != null)
+{
+    var envFile = Path.Combine(solutionRoot, ".env");
+    if (File.Exists(envFile))
+    {
+        Env.Load(envFile);
+        Console.WriteLine($"Loaded environment variables from: {envFile}");
+    }
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Require explicit environment specification - fail fast if not set
-// Use: dotnet run --project src/Adapters --environment dev
-// Or:  $env:ASPNETCORE_ENVIRONMENT="dev"; dotnet run --project src/Adapters
+// Use: Set ASPNETCORE_ENVIRONMENT in .env file, or use command line:
+//      dotnet run --project src/Adapters --environment local
 var env = builder.Environment.EnvironmentName;
-var validEnvironments = new[] { "dev", "e2e", "stage", "prod", "amr-prod", "eu-prod", "amr-stage", "eu-stage" };
+var validEnvironments = new[] { "local", "dev", "stage", "prod", "amr-prod", "eu-prod", "amr-stage", "eu-stage" };
 
 if (string.IsNullOrEmpty(env) ||
     env.Equals("Production", StringComparison.OrdinalIgnoreCase) ||
@@ -27,8 +41,9 @@ if (string.IsNullOrEmpty(env) ||
     Console.Error.WriteLine($"Valid environments: {string.Join(", ", validEnvironments)}");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Usage:");
-    Console.Error.WriteLine("  dotnet run --project src/Adapters --environment dev");
-    Console.Error.WriteLine("  $env:ASPNETCORE_ENVIRONMENT=\"dev\"; dotnet run --project src/Adapters");
+    Console.Error.WriteLine("  1. Set ASPNETCORE_ENVIRONMENT in .env file (recommended)");
+    Console.Error.WriteLine("  2. dotnet run --project src/Adapters --environment local");
+    Console.Error.WriteLine("  3. $env:ASPNETCORE_ENVIRONMENT=\"local\"; dotnet run --project src/Adapters");
     Environment.Exit(1);
 }
 
@@ -334,3 +349,21 @@ if (swaggerEnabled)
 app.MapControllers().RequireRateLimiting("concurrency");
 
 app.Run();
+
+/// <summary>
+/// Find the solution root directory by looking for .sln file or .env file.
+/// </summary>
+static string? FindSolutionRoot(string startPath)
+{
+    var dir = new DirectoryInfo(startPath);
+    while (dir != null)
+    {
+        // Check for .sln file or .env file as markers of solution root
+        if (dir.GetFiles("*.sln").Length > 0 || File.Exists(Path.Combine(dir.FullName, ".env")))
+        {
+            return dir.FullName;
+        }
+        dir = dir.Parent;
+    }
+    return null;
+}

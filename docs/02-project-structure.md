@@ -39,10 +39,9 @@ Pure business entities with no external dependencies.
 Entities/
 ├── BaseEntity.cs           # Common fields (Id, CreatedAt, etc.)
 ├── PrescriptionOrder.cs    # Prescription Order aggregate
-├── User.cs                 # User entity
+├── User.cs                 # User entity (includes API key authentication)
 ├── Prescription.cs         # Prescription entity
-├── Patient.cs              # Patient entity
-└── ApiKeyUser.cs           # API key authentication entity
+└── Patient.cs              # Patient entity
 ```
 
 ### DTOs Layer (`src/DTOs/`)
@@ -112,10 +111,13 @@ Application/
 │   ├── Repositories/
 │   │   ├── IRepository.cs
 │   │   ├── IUnitOfWork.cs
-│   │   └── IOrderRepository.cs
+│   │   ├── IPrescriptionOrderRepository.cs
+│   │   ├── IPrescriptionRepository.cs
+│   │   ├── IPatientRepository.cs
+│   │   └── IUserRepository.cs
 │   └── Services/
 │       ├── ICacheService.cs
-│       └── ICurrentUserService.cs
+│       └── IApiKeyGenerator.cs
 │
 └── DependencyInjection.cs      # MediatR, FluentValidation registration
 ```
@@ -138,9 +140,11 @@ Adapters/
 │   ├── Controllers/
 │   │   ├── V1/                 # API Version 1
 │   │   │   ├── OrdersController.cs
-│   │   │   └── AdminController.cs
+│   │   │   ├── AdminController.cs
+│   │   │   └── Mappers/
 │   │   └── V2/                 # API Version 2
-│   │       └── OrdersController.cs
+│   │       ├── OrdersController.cs
+│   │       └── Mappers/
 │   │
 │   ├── Authentication/
 │   │   └── ApiKeyAuthenticationHandler.cs
@@ -154,44 +158,50 @@ Adapters/
 │   │   └── ValidationExceptionMiddleware.cs
 │   │
 │   ├── Services/
-│   │   └── CurrentUserService.cs
-│   │
-│   ├── appsettings.json        # Base configuration
-│   ├── appsettings.dev.json    # Development
-│   ├── appsettings.prod.json   # Production
-│   ├── appsettings.stage.json  # Staging
-│   ├── appsettings.e2e.json    # E2E Testing
-│   ├── appsettings.amr-prod.json
+│   │   ├── CurrentUserService.cs
+│   │   └── RootAdminInitializer.cs
 │   │
 │   ├── Program.cs              # Application entry point
 │   └── Dockerfile
 │
+├── Cache/                      # Caching adapters
+│   ├── CacheSettings.cs
+│   ├── MemoryCacheService.cs   # L1 in-memory cache
+│   ├── RedisCacheService.cs    # L2 Redis cache
+│   ├── HybridCacheService.cs   # L1/L2 hybrid cache
+│   ├── NullCacheService.cs     # No-op cache for testing
+│   └── DependencyInjection.cs
+│
 └── Persistence/                # Data/External adapters (driven)
     ├── Repositories/
-    │   ├── Repository.cs       # Generic InMemory repository
-    │   ├── OrderRepository.cs
-    │   ├── MongoDB/            # MongoDB-specific implementations
-    │   │   ├── MongoOrderRepository.cs
-    │   │   └── MongoUnitOfWork.cs
-    │   └── UnitOfWork.cs
-    │
-    ├── Services/
-    │   ├── MemoryCacheService.cs
-    │   ├── RedisCacheService.cs
-    │   ├── RootAdminInitializer.cs
-    │   └── SlidingWindowRateLimiter.cs
+    │   ├── MongoRepository.cs          # Generic MongoDB repository
+    │   ├── MongoPrescriptionOrderRepository.cs
+    │   ├── MongoPrescriptionRepository.cs
+    │   ├── MongoPatientRepository.cs
+    │   ├── MongoUserRepository.cs
+    │   └── MongoUnitOfWork.cs
     │
     ├── Security/
     │   └── ApiKeyHasher.cs
     │
     ├── Configuration/
-    │   ├── DatabaseSettings.cs
     │   ├── MongoDbSettings.cs
-    │   ├── RedisSettings.cs
     │   ├── CorsSettings.cs
-    │   └── RateLimitSettings.cs
+    │   ├── RateLimitSettings.cs
+    │   └── RootAdminSettings.cs
     │
     └── DependencyInjection.cs
+
+config/                         # Configuration files (separate from code)
+├── appsettings.json            # Base configuration
+├── appsettings.local.json      # Local development (Docker)
+├── appsettings.dev.json        # Development
+├── appsettings.stage.json      # Staging
+├── appsettings.prod.json       # Production
+├── appsettings.amr-prod.json   # AMR Production
+├── appsettings.amr-stage.json  # AMR Staging
+├── appsettings.eu-prod.json    # EU Production
+└── appsettings.eu-stage.json   # EU Staging
 ```
 
 ---
@@ -212,9 +222,9 @@ Adapters/
 |--------------|----------|
 | Add a new order operation | `Application/Orders/Operations/` |
 | Add validation for an operation | `Application/Orders/Operations/XxxValidator.cs` |
-| Change database implementation | `Adapters/Persistence/Repositories/MongoDB/` |
-| Add a new external service | `Adapters/Persistence/Services/` |
-| Add API versioned DTO | `Application/Orders/V1/DTOs/` or `V2/DTOs/` |
+| Change database implementation | `Adapters/Persistence/Repositories/` |
+| Add caching logic | `Adapters/Cache/` |
+| Add API versioned DTO | `src/DTOs/V1/` or `src/DTOs/V2/` |
 | Add middleware | `Adapters/Api/Middleware/` |
-| Configure environment | `Adapters/Api/appsettings.{env}.json` |
+| Configure environment | `config/appsettings.{env}.json` |
 

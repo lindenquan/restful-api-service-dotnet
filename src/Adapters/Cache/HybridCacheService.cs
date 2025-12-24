@@ -45,11 +45,11 @@ public sealed class HybridCacheService : ICacheService, IDisposable
         // Write to L2 first (source of truth)
         _l2Cache?.Set(key, value, expiry);
 
-        // Write to L1 with appropriate TTL
+        // Write to L1 with appropriate TTL (null means infinite)
         if (_l1Cache != null)
         {
             var l1Expiry = _settings.L1.Consistency == CacheConsistency.Eventual
-                ? TimeSpan.FromSeconds(_settings.L1.TtlSeconds)
+                ? _settings.L1.GetTtl()
                 : expiry;
             _l1Cache.Set(key, value, l1Expiry);
         }
@@ -78,10 +78,10 @@ public sealed class HybridCacheService : ICacheService, IDisposable
         // Try L2
         if (_l2Cache != null && _l2Cache.TryGet<T>(key, out value))
         {
-            // Populate L1 from L2 (read-through)
+            // Populate L1 from L2 (read-through) using L1 TTL (null means infinite)
             if (_l1Cache != null && value != null)
             {
-                var l1Expiry = TimeSpan.FromSeconds(_settings.L1.TtlSeconds);
+                var l1Expiry = _settings.L1.GetTtl();
                 _l1Cache.Set(key, value, l1Expiry);
             }
             return true;

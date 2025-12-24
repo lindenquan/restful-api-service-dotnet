@@ -21,10 +21,8 @@ WORKDIR /src
 COPY RestfulApiService.slnx .
 COPY src/Entities/Entities.csproj src/Entities/
 COPY src/DTOs/DTOs.csproj src/DTOs/
-COPY src/Contracts/Contracts.csproj src/Contracts/
 COPY src/Application/Application.csproj src/Application/
 COPY src/Adapters/Adapters.csproj src/Adapters/
-COPY src/Adapters/ApiClient/ApiClient.csproj src/Adapters/ApiClient/
 
 # Restore dependencies
 RUN dotnet restore src/Adapters/Adapters.csproj

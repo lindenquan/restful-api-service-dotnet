@@ -51,6 +51,8 @@ if (builder.Environment.EnvironmentName == "amr-prod")
 {
   "MongoDB": {
     "ConnectionString": "mongodb://localhost:27017",
+    "Username": "admin",
+    "Password": "password123",
     "DatabaseName": "prescription_orders",
     "UsersCollection": "users",
     "PrescriptionsCollection": "prescriptions",
@@ -58,6 +60,12 @@ if (builder.Environment.EnvironmentName == "amr-prod")
   }
 }
 ```
+
+**Authentication:**
+- `Username` and `Password` are optional
+- If provided, they will be automatically injected into the `ConnectionString`
+- Supports both `mongodb://` and `mongodb+srv://` protocols
+- Credentials are URL-encoded automatically
 
 ### Redis
 

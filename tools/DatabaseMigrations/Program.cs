@@ -20,8 +20,19 @@ var configuration = new ConfigurationBuilder()
 // Get MongoDB settings
 var connectionString = configuration["MongoDB:ConnectionString"]
     ?? throw new InvalidOperationException("MongoDB:ConnectionString is required");
+var username = configuration["MongoDB:Username"];
+var password = configuration["MongoDB:Password"];
 var databaseName = configuration["MongoDB:DatabaseName"]
     ?? throw new InvalidOperationException("MongoDB:DatabaseName is required");
+
+// Inject username/password into connection string if provided
+if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
+{
+    var uri = new Uri(connectionString);
+    var protocol = uri.Scheme; // "mongodb" or "mongodb+srv"
+    var hostAndPath = connectionString.Replace($"{protocol}://", "");
+    connectionString = $"{protocol}://{Uri.EscapeDataString(username)}:{Uri.EscapeDataString(password)}@{hostAndPath}";
+}
 
 Console.WriteLine($"Database: {databaseName}");
 Console.WriteLine();

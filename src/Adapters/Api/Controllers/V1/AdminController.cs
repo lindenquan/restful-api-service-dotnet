@@ -3,7 +3,6 @@ using Adapters.Api.Services;
 using Application.ApiKeys.Operations;
 using Asp.Versioning;
 using DTOs.Shared;
-using Entities;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

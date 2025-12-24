@@ -1,14 +1,19 @@
-# Run in dev mode (Swagger UI enabled)
+# Run API (environment is loaded from .env file)
+# To change environment, edit ASPNETCORE_ENVIRONMENT in .env file
+run:
+    dotnet run --project src/Adapters
+
+# Run in local mode (uses Docker Compose for MongoDB/Redis)
+local:
+    dotnet run --project src/Adapters --environment local
+
+# Run in dev mode (uses real dev MongoDB/Redis)
 dev:
-    ASPNETCORE_ENVIRONMENT="dev" dotnet run --project src/Adapters
+    dotnet run --project src/Adapters --environment dev
 
-# Run in stage mode
+# Run in stage mode (uses real stage MongoDB/Redis)
 stage:
-   ASPNETCORE_ENVIRONMENT="stage" dotnet run --project src/Adapters
-
-# Run in e2e mode
-e2e:
-   ASPNETCORE_ENVIRONMENT="e2e" dotnet run --project src/Adapters
+    dotnet run --project src/Adapters --environment stage
 
 # Build solution
 build:
@@ -22,9 +27,43 @@ test:
 test-coverage:
     dotnet test tests/Tests --collect:"XPlat Code Coverage"
 
-# Run API E2E tests (requires MongoDB and Redis via docker-compose)
-test-api-e2e:
-    dotnet test tests/Tests.Api.E2E --verbosity minimal
+# Run API E2E tests with environment support
+# Usage: just test-api-e2e [env]
+# Examples:
+#   just test-api-e2e          # Uses local (starts Docker automatically)
+#   just test-api-e2e local    # Uses local (starts Docker automatically)
+#   just test-api-e2e dev      # Uses dev (no Docker, uses real services)
+# Note: Tests require ASPNETCORE_ENVIRONMENT to be set explicitly (not from .env)
+test-api-e2e env="local":
+    set -e; \
+    if [ "{{env}}" = "local" ]; then \
+    echo "🚀 Starting Docker services (MongoDB + Redis)..."; \
+    docker compose up -d mongodb redis; \
+    echo "⏳ Waiting for services to be ready..."; \
+    sleep 10; \
+    fi; \
+    echo "🚀 Running API E2E tests (ASPNETCORE_ENVIRONMENT={{env}})..."; \
+    ASPNETCORE_ENVIRONMENT={{env}} dotnet test tests/Tests.Api.E2E --verbosity minimal; \
+    if [ "{{env}}" = "local" ]; then \
+    echo "🛑 Stopping Docker services..."; \
+    docker compose down; \
+    fi
+
+# Run all tests (unit + API E2E)
+test-all:
+    echo "========================================="
+    echo "Running ALL Tests"
+    echo "========================================="
+    echo ""
+    echo "Step 1: API Unit Tests..."
+    just test
+    echo ""
+    echo "Step 2: API E2E Tests..."
+    just test-api-e2e
+    echo ""
+    echo "========================================="
+    echo "✅ All Tests Passed!"
+    echo "========================================="
 
 # Format code
 format:
@@ -39,35 +78,22 @@ clean:
 restore:
     dotnet restore
 
-# Docker: start all services
+# Docker: Start MongoDB + Redis only (for API E2E tests)
 docker-up:
-    docker compose up -d
+    echo "🚀 Starting MongoDB + Redis..."
+    docker compose up -d mongodb redis
+    sleep 10s
 
-# Docker: stop all services
+# Docker: Start MongoDB + Redis + API (all services)
+docker-up-api:
+    echo "🚀 Starting MongoDB + Redis + API..."
+    docker compose up -d --build
+    sleep 20s
+
+# Docker: Stop all services
 docker-down:
+    echo "🛑 Stopping services..."
     docker compose down
-
-# Web App: Clean build artifacts
-web-clean:
-    dotnet clean src/Web
-    rm -rf src/Web/bin src/Web/obj
-
-# Web App: Build
-web-build:
-    dotnet build src/Web
-
-# Web App: Run unit tests
-web-test:
-    dotnet test tests/Tests.Web --verbosity minimal
-
-# Web App: Run in development mode
-web-dev:
-    dotnet watch run --project src/Web
-
-# Web App: Build and run from dist folder (preview mode)
-web-preview:
-    dotnet publish src/Web -c Release -o src/Web/dist
-    dotnet serve -d src/Web/dist/wwwroot -p 5002
 
 # Docker: Build AWS Lambda image
 docker-build-lambda:
@@ -79,52 +105,27 @@ docker-build-eks:
 
 # Docker: Build all images
 docker-build-all: docker-build-lambda docker-build-eks
-    @echo "All Docker images built successfully"
+    echo "All Docker images built successfully"
 
-# Ultimate: Run complete CI/CD pipeline
+# Ultimate: Run complete CI/CD pipeline (all tests including E2E)
 ultimate:
-    @echo "========================================="
-    @echo "Starting Complete CI/CD Pipeline"
-    @echo "========================================="
-    @echo ""
-    @echo "========================================="
-    @echo "PART 1: API Service Testing"
-    @echo "========================================="
-    @echo ""
-    @echo "Step 1.1: Clean API build artifacts..."
+    echo "========================================="
+    echo "Starting Complete CI/CD Pipeline"
+    echo "========================================="
+    echo ""
+    echo "Step 1: Clean build artifacts..."
     just clean
-    @echo ""
-    @echo "Step 1.2: Build API solution..."
+    echo ""
+    echo "Step 2: Build solution..."
     just build
-    @echo ""
-    @echo "Step 1.3: Run API unit tests..."
-    just test
-    @echo ""
-    @echo "Step 1.4: Start Docker Compose services..."
-    just docker-up
-    @echo "Waiting 20 seconds for services to start..."
-    sleep 20
-    @echo ""
-    @echo "Step 1.5: Run API E2E tests..."
-    just test-api-e2e || (just docker-down && exit 1)
-    @echo ""
-    @echo "Step 1.6: Stop Docker Compose services..."
-    just docker-down
-    @echo ""
-    @echo "========================================="
-    @echo "PART 2: Web Client Testing"
-    @echo "========================================="
-    @echo ""
-    @echo "Step 2.1: Clean Web build artifacts..."
-    just web-clean
-    @echo ""
-    @echo "Step 2.2: Build Web client..."
-    just web-build
-    @echo ""
-    @echo "Step 2.3: Run Web unit tests..."
-    just web-test
-    @echo ""
-    @echo "========================================="
-    @echo "✅ Complete CI/CD Pipeline Successful!"
-    @echo "========================================="
-
+    echo ""
+    echo "Step 3: Run all tests..."
+    just test-all
+    echo ""
+    echo "========================================="
+    echo "✅ Complete CI/CD Pipeline Successful!"
+    echo "========================================="
+    echo ""
+    echo "Summary:"
+    echo "  - API Unit Tests: ✅"
+    echo "  - API E2E Tests: ✅"

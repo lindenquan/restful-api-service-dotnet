@@ -43,23 +43,44 @@ scoop install just
 git clone <repository-url>
 cd restful-api-service-dotnet
 
-# Run with dev profile
-just dev
+# Copy environment file and configure
+cp .env.example .env
+
+# Start Docker services (MongoDB + Redis)
+just docker-up
+
+# Run API (reads ASPNETCORE_ENVIRONMENT from .env file)
+just run
+
+# Or run with explicit environment override
+just local
 
 # API available at http://localhost:5000
 # Swagger UI available at http://localhost:5000/swagger
 ```
 
-> **Note:** Swagger UI is only enabled in `dev` environment.
+> **Note:** Swagger UI is enabled in `local` and `dev` environments.
 
-### Run with Docker (Production)
+**Environments:**
+- `local` - Uses Docker Compose (localhost:27017, localhost:6379) - for local development
+- `dev` - Uses real dev MongoDB/Redis - for development environment
+- `stage` - Uses real stage MongoDB/Redis - for staging environment
+- `prod` - Uses real prod MongoDB/Redis - for production environment
+
+### Run with Docker Compose
 
 ```bash
-just docker-up    # Start services (MongoDB, Redis, API)
-just docker-down  # Stop services
+# Start MongoDB + Redis only
+just docker-up
 
-# API available at http://localhost:8080
-# Health check: http://localhost:8080/health
+# Start MongoDB + Redis + API (all in Docker)
+just docker-up-api
+
+# Stop all services
+just docker-down
+
+# API available at http://localhost:5000
+# Health check: http://localhost:5000/health
 ```
 
 ---
@@ -69,22 +90,23 @@ just docker-down  # Stop services
 | Command | Description |
 |---------|-------------|
 | **API Commands** | |
-| `just dev` | Run API in dev mode (Swagger enabled) |
+| `just run` | Run API (uses environment from `.env` file) |
+| `just local` | Run API in local mode (explicit override) |
+| `just dev` | Run API in dev mode (explicit override) |
+| `just stage` | Run API in stage mode (explicit override) |
 | `just build` | Build the solution |
 | `just test` | Run unit tests |
 | `just test-coverage` | Run tests with coverage |
-| `just test-api-e2e` | Run API E2E tests (requires docker-compose) |
+| `just test-api-e2e [env]` | Run API E2E tests (default: local with Docker) |
 | `just format` | Format code |
 | `just clean` | Clean build artifacts |
-| **Web App Commands** | |
-| `just web-clean` | Clean Web app build artifacts |
-| `just web-build` | Build Web app |
-| `just web-test` | Run Web app unit tests |
-| `just web-dev` | Run Web app in dev mode |
-| `just web-preview` | Build and run from dist folder |
 | **Docker Commands** | |
-| `just docker-up` | Start MongoDB + Redis |
-| `just docker-down` | Stop MongoDB + Redis |
+| `just docker-up` | Start MongoDB + Redis only |
+| `just docker-up-api` | Start MongoDB + Redis + API (all in Docker) |
+| `just docker-down` | Stop all services |
+| **Test Commands** | |
+| `just test-all` | Run all tests (unit + E2E) |
+| `just ultimate` | Run complete CI/CD pipeline |
 
 ---
 
@@ -94,13 +116,11 @@ just docker-down  # Stop services
 ├── src/
 │   ├── Entities/         # Core business entities (no dependencies)
 │   ├── DTOs/             # Shared DTOs for all API versions (independent project)
-│   ├── Contracts/        # Pure API contracts (shared between server & client)
 │   ├── Application/      # Use cases, operations, validators
-│   ├── Adapters/         # Interface implementations
-│   │   ├── Api/          # Controllers, middleware, configuration
-│   │   ├── ApiClient/    # Type-safe HTTP clients (Refit)
-│   │   └── Persistence/  # Database, cache, external services
-│   └── Web/              # Blazor WebAssembly client
+│   └── Adapters/         # Interface implementations
+│       ├── Api/          # Controllers, middleware, configuration
+│       ├── Cache/        # L1/L2 cache implementations
+│       └── Persistence/  # Database, external services
 │
 ├── tests/
 │   ├── Tests/           # Unit tests (business logic + L1 cache)
@@ -110,8 +130,7 @@ just docker-down  # Stop services
 │   └── DatabaseMigrations/  # MongoDB index creation
 │
 ├── docs/                 # Documentation
-├── docker-compose.yml    # Production deployment
-└── docker-compose.e2e.yml # E2E testing
+└── docker-compose.yml    # Local development and deployment
 ```
 
 ---
@@ -130,8 +149,7 @@ just docker-down  # Stop services
 | [Caching Strategy](docs/09-caching-strategy.md) | L1/L2 cache configuration and usage |
 | [CancellationToken Best Practices](docs/10-cancellation-tokens.md) | Graceful cancellation and resource management |
 | [Sealed Classes](docs/11-sealed-classes.md) | Performance optimization with sealed keyword |
-| [Blazor WASM + API Client](docs/12-blazor-wasm-api-client.md) | Type-safe API clients with Refit and Blazor WebAssembly |
-| [API Client E2E Testing](docs/13-api-client-e2e-testing.md) | Full-stack E2E tests using typed API clients |
+| [E2E Testing Environments](docs/E2E_TESTING_ENVIRONMENTS.md) | Run E2E tests against any environment (local/dev/stage/prod) |
 
 ---
 
@@ -182,14 +200,49 @@ Install the [EditorConfig for VS Code](https://marketplace.visualstudio.com/item
 
 ---
 
-## Environment Variables
+## Environment Configuration
+
+The application uses a `.env` file for environment configuration. This file is loaded automatically at startup using [DotNetEnv](https://github.com/tonerdo/dotnet-env).
+
+### Setup
 
 ```bash
-ASPNETCORE_ENVIRONMENT=prod           # dev, stage, eu-stage, amr-stage, e2e, prod, eu-prod, amr-prod
-MongoDB__ConnectionString=mongodb://host:27017
-Redis__ConnectionString=redis:6379
-RootAdmin__InitialApiKey=your-key    # Change immediately!
+# Copy the example file
+cp .env.example .env
+
+# Edit .env to configure your environment
 ```
+
+### `.env` File Structure
+
+```bash
+# Application Configuration
+ASPNETCORE_ENVIRONMENT=local    # local, dev, stage, prod, eu-prod, amr-prod
+
+# Docker Compose Configuration
+MONGO_USERNAME=username
+MONGO_PASSWORD=password
+MONGO_DATABASE=prescription_db
+REDIS_PORT=6379
+```
+
+### How It Works
+
+1. **API Application**: Loads `.env` file at startup via DotNetEnv, setting `ASPNETCORE_ENVIRONMENT` before configuration is built
+2. **Docker Compose**: Uses `.env` file for service configuration (MongoDB credentials, Redis port)
+3. **Tests**: Use explicit `ASPNETCORE_ENVIRONMENT` variable (via `just test-api-e2e`)
+
+### Environment Guide
+
+| Environment | Description |
+|-------------|-------------|
+| `local` | Uses Docker Compose (localhost:27017, localhost:6379) |
+| `dev` | Uses real dev MongoDB/Redis |
+| `stage` | Uses real stage MongoDB/Redis |
+| `prod` | Uses real prod MongoDB/Redis |
+| `eu-prod`, `amr-prod` | Regional production deployments |
+
+See [E2E Testing Environments](docs/E2E_TESTING_ENVIRONMENTS.md) for more details.
 
 ---
 

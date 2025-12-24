@@ -26,13 +26,19 @@ public sealed class MemoryCacheService : ICacheService
 
     public void Set<T>(string key, T value, TimeSpan? expiry = null)
     {
-        var actualExpiry = expiry ?? TimeSpan.FromSeconds(_settings.L1.TtlSeconds);
+        // Use provided expiry, or get from settings (null means infinite TTL)
+        var actualExpiry = expiry ?? _settings.L1.GetTtl();
 
         var options = new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = actualExpiry,
             Size = 1 // Each entry counts as 1 item for size limiting
         };
+
+        // Only set expiration if TTL is not infinite
+        if (actualExpiry.HasValue)
+        {
+            options.AbsoluteExpirationRelativeToNow = actualExpiry.Value;
+        }
 
         _cache.Set(key, value, options);
     }
