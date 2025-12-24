@@ -84,6 +84,42 @@ N-Layer doesn't prevent the UI from "knowing" about the Database. It's tempting 
 
 ---
 
+## Clean Architecture Follows SOLID Principles
+
+Clean Architecture is essentially **SOLID principles applied at the architectural level**. Both were created by Robert C. Martin (Uncle Bob), so they align perfectly.
+
+### Why Traditional N-Layer Violates SOLID ❌
+
+| SOLID Principle | How N-Layer Violates It |
+|-----------------|-------------------------|
+| **S** - Single Responsibility | BLL changes for both business rule changes AND database schema changes (tightly coupled) |
+| **O** - Open/Closed | Adding new features often requires modifying existing DAL classes and BLL services |
+| **L** - Liskov Substitution | Hard to swap implementations—`SqlRepository` is hardcoded, not behind an interface |
+| **I** - Interface Segregation | Fat interfaces like `IRepository<T>` with methods you don't need (CRUD for everything) |
+| **D** - Dependency Inversion | **Completely violated** — BLL depends directly on DAL (high-level depends on low-level) |
+
+### How Clean Architecture Follows SOLID ✅
+
+| SOLID Principle | How Clean Architecture Applies It |
+|-----------------|-----------------------------------|
+| **S** - Single Responsibility | Each layer has one reason to change: Domain changes for business rules, Infrastructure changes for technical details, Application changes for use case workflows |
+| **O** - Open/Closed | Add new features by adding new Use Cases/Handlers, not modifying existing ones |
+| **L** - Liskov Substitution | Swap implementations (e.g., `SqlRepository` → `MongoRepository`) without breaking the system |
+| **I** - Interface Segregation | Small, focused interfaces (e.g., `IOrderRepository` not `IGodRepository<everything>`) |
+| **D** - Dependency Inversion | **The core enabler** — inner layers define abstractions, outer layers implement them |
+
+### Why DIP is the Core
+
+While all SOLID principles apply, **DIP is the foundation** that makes Clean Architecture possible:
+
+- Without DIP, you can't achieve "dependencies point inward"
+- Without DIP, business logic depends on databases and frameworks
+- Without DIP, testing requires real infrastructure
+
+> **Clean Architecture = SOLID principles scaled from class level to system level**
+
+---
+
 ## The Core Difference: Dependency Inversion Principle (DIP)
 
 **DIP is the foundation of Clean Architecture.** It's one of the SOLID principles and states:
