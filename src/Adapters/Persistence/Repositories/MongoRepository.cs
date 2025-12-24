@@ -23,14 +23,14 @@ public class MongoRepository<T> : IRepository<T> where T : BaseEntity
         // Exclude soft-deleted entities
         var filter = Builders<T>.Filter.And(
             Builders<T>.Filter.Eq(e => e.Id, id),
-            Builders<T>.Filter.Eq(e => e.IsDeleted, false));
+            Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
         return await _collection.Find(filter).FirstOrDefaultAsync(ct);
     }
 
     public async Task<IEnumerable<T>> GetAllAsync(CancellationToken ct = default)
     {
         // Exclude soft-deleted entities
-        return await _collection.Find(e => !e.IsDeleted).ToListAsync(ct);
+        return await _collection.Find(e => !e.Metadata.IsDeleted).ToListAsync(ct);
     }
 
     public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
@@ -38,7 +38,7 @@ public class MongoRepository<T> : IRepository<T> where T : BaseEntity
         // Combine with soft-delete filter
         var filter = Builders<T>.Filter.And(
             Builders<T>.Filter.Where(predicate),
-            Builders<T>.Filter.Eq(e => e.IsDeleted, false));
+            Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
         return await _collection.Find(filter).ToListAsync(ct);
     }
 
@@ -46,7 +46,7 @@ public class MongoRepository<T> : IRepository<T> where T : BaseEntity
     {
         var filter = Builders<T>.Filter.And(
             Builders<T>.Filter.Where(predicate),
-            Builders<T>.Filter.Eq(e => e.IsDeleted, false));
+            Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
         return await _collection.Find(filter).FirstOrDefaultAsync(ct);
     }
 
@@ -54,20 +54,20 @@ public class MongoRepository<T> : IRepository<T> where T : BaseEntity
     {
         var filter = Builders<T>.Filter.And(
             Builders<T>.Filter.Where(predicate),
-            Builders<T>.Filter.Eq(e => e.IsDeleted, false));
+            Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
         return await _collection.Find(filter).AnyAsync(ct);
     }
 
     public async Task<int> CountAsync(CancellationToken ct = default)
     {
-        return (int)await _collection.CountDocumentsAsync(e => !e.IsDeleted, cancellationToken: ct);
+        return (int)await _collection.CountDocumentsAsync(e => !e.Metadata.IsDeleted, cancellationToken: ct);
     }
 
     public async Task<int> CountAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
     {
         var filter = Builders<T>.Filter.And(
             Builders<T>.Filter.Where(predicate),
-            Builders<T>.Filter.Eq(e => e.IsDeleted, false));
+            Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
         return (int)await _collection.CountDocumentsAsync(filter, cancellationToken: ct);
     }
 
@@ -78,7 +78,7 @@ public class MongoRepository<T> : IRepository<T> where T : BaseEntity
         {
             entity.Id = await GetNextIdAsync(ct);
         }
-        entity.CreatedAt = DateTime.UtcNow;
+        entity.Metadata.CreatedAt = DateTime.UtcNow;
         await _collection.InsertOneAsync(entity, cancellationToken: ct);
     }
 
@@ -93,7 +93,7 @@ public class MongoRepository<T> : IRepository<T> where T : BaseEntity
             {
                 entity.Id = nextId++;
             }
-            entity.CreatedAt = DateTime.UtcNow;
+            entity.Metadata.CreatedAt = DateTime.UtcNow;
         }
 
         await _collection.InsertManyAsync(entityList, cancellationToken: ct);
@@ -101,7 +101,7 @@ public class MongoRepository<T> : IRepository<T> where T : BaseEntity
 
     public void Update(T entity)
     {
-        entity.UpdatedAt = DateTime.UtcNow;
+        entity.Metadata.UpdatedAt = DateTime.UtcNow;
         var filter = Builders<T>.Filter.Eq(e => e.Id, entity.Id);
         // Note: MongoDB driver doesn't support synchronous operations well,
         // so we use GetAwaiter().GetResult() here. In production, use async.
@@ -113,9 +113,9 @@ public class MongoRepository<T> : IRepository<T> where T : BaseEntity
     /// </summary>
     public void SoftDelete(T entity, string? deletedBy = null)
     {
-        entity.IsDeleted = true;
-        entity.DeletedAt = DateTime.UtcNow;
-        entity.DeletedBy = deletedBy;
+        entity.Metadata.IsDeleted = true;
+        entity.Metadata.DeletedAt = DateTime.UtcNow;
+        entity.Metadata.DeletedBy = deletedBy;
         Update(entity);
     }
 

@@ -75,7 +75,7 @@ public class CreateOrderHandlerTests
         capturedOrder.Should().NotBeNull();
         capturedOrder!.Status.Should().Be(OrderStatus.Pending);
         capturedOrder.Notes.Should().Be("Test notes");
-        capturedOrder.CreatedBy.Should().Be("admin");
+        capturedOrder.Metadata.CreatedBy.Should().Be("admin");
 
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }

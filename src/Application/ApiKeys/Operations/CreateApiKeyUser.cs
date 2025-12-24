@@ -89,8 +89,7 @@ public sealed class CreateApiKeyUserHandler : IRequestHandler<CreateApiKeyUserCo
             UserType = request.UserType,
             Description = request.Description,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = request.CreatedBy
+            Metadata = { CreatedBy = request.CreatedBy }
         };
 
         await _unitOfWork.Users.AddAsync(user, cancellationToken);

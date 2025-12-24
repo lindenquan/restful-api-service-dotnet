@@ -32,28 +32,28 @@ public sealed class MongoUserRepository : MongoRepository<User>, IUserRepository
     public async Task<User?> GetByApiKeyHashAsync(string apiKeyHash, CancellationToken ct = default)
     {
         return await _collection
-            .Find(u => u.ApiKeyHash == apiKeyHash && !u.IsDeleted)
+            .Find(u => u.ApiKeyHash == apiKeyHash && !u.Metadata.IsDeleted)
             .FirstOrDefaultAsync(ct);
     }
 
     public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
     {
         return await _collection
-            .Find(u => u.Email == email && !u.IsDeleted)
+            .Find(u => u.Email == email && !u.Metadata.IsDeleted)
             .FirstOrDefaultAsync(ct);
     }
 
     public async Task<User?> GetByUserNameAsync(string userName, CancellationToken ct = default)
     {
         return await _collection
-            .Find(u => u.UserName == userName && !u.IsDeleted)
+            .Find(u => u.UserName == userName && !u.Metadata.IsDeleted)
             .FirstOrDefaultAsync(ct);
     }
 
     public async Task<IEnumerable<User>> GetActiveUsersAsync(CancellationToken ct = default)
     {
         return await _collection
-            .Find(u => u.IsActive && !u.IsDeleted)
+            .Find(u => u.IsActive && !u.Metadata.IsDeleted)
             .ToListAsync(ct);
     }
 
@@ -61,7 +61,7 @@ public sealed class MongoUserRepository : MongoRepository<User>, IUserRepository
     {
         var hash = ApiKeyHasher.HashApiKey(apiKey);
         return await _collection
-            .Find(u => u.ApiKeyHash == hash && u.IsActive && !u.IsDeleted)
+            .Find(u => u.ApiKeyHash == hash && u.IsActive && !u.Metadata.IsDeleted)
             .AnyAsync(ct);
     }
 

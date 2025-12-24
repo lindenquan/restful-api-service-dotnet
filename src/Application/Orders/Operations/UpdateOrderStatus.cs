@@ -38,7 +38,7 @@ public sealed class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatus
         order.Status = request.Status;
         if (request.Notes != null)
             order.Notes = request.Notes;
-        order.UpdatedBy = request.UpdatedBy;
+        order.Metadata.UpdatedBy = request.UpdatedBy;
 
         // Set fulfilled/pickup dates based on status
         if (request.Status == OrderStatus.Ready)

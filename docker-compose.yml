@@ -7,13 +7,17 @@
 #   Start all services (MongoDB + Redis + API):
 #     docker compose up -d
 #
+#   Run database migrations only:
+#     docker compose up db-migrate
+#
 #   Stop all services:
 #     docker compose down
 #
 # Services:
 #   - mongodb: MongoDB database (port 27017)
 #   - redis: Redis cache (port 6379)
-#   - api: Prescription Order API service (port 5000)
+#   - db-migrate: Database initialization (creates collections and indexes)
+#   - api: Prescription Order API service (port 8080)
 
 services:
   mongodb:
@@ -46,6 +50,23 @@ services:
       retries: 5
       start_period: 5s
 
+  db-migrate:
+    build:
+      context: .
+      dockerfile: tools/DatabaseMigrations/Dockerfile
+    container_name: prescription-db-migrate
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      MongoDB__ConnectionString: mongodb://mongodb:27017
+      MongoDB__Username: ${MongoDB__Username}
+      MongoDB__Password: ${MongoDB__Password}
+      MongoDB__DatabaseName: ${MONGO_DATABASE}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    # Run once and exit - this is an init container pattern
+    restart: "no"
+
   api:
     build:
       context: .
@@ -63,11 +84,16 @@ services:
       MongoDB__DatabaseName: ${MONGO_DATABASE}
       Cache__L2__ConnectionString: redis:${REDIS_PORT}
       Cache__L2__Enabled: "true"
+      # Root admin initialization
+      RootAdmin__InitialApiKey: ${RootAdmin__InitialApiKey}
+      RootAdmin__EnableAutoCreate: "true"
     depends_on:
       mongodb:
         condition: service_healthy
       redis:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s

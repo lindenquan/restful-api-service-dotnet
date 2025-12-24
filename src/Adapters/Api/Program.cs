@@ -250,10 +250,12 @@ var healthChecksBuilder = builder.Services.AddHealthChecks()
     .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy());
 
 // Add MongoDB health check - required for application to be healthy
+// Use GetConnectionString() to include username/password if configured
 if (!string.IsNullOrEmpty(mongoDbSettings?.ConnectionString))
 {
+    var mongoConnectionString = mongoDbSettings.GetConnectionString();
     healthChecksBuilder.AddMongoDb(
-        sp => new MongoDB.Driver.MongoClient(mongoDbSettings.ConnectionString),
+        sp => new MongoDB.Driver.MongoClient(mongoConnectionString),
         name: "mongodb",
         failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
         tags: ["db", "mongodb", "required"]);
@@ -271,6 +273,13 @@ if (cacheSettings.L2.Enabled)
         failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded,
         tags: ["cache", "redis"]);
 }
+
+// Add Root Admin health check - required for application to be healthy
+// Verifies that a root admin user exists in the database
+healthChecksBuilder.AddCheck<RootAdminHealthCheck>(
+    "root-admin",
+    failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
+    tags: ["security", "required"]);
 
 // Configure Antiforgery for CSRF protection (for browser clients with cookies)
 builder.Services.AddAntiforgery(options =>

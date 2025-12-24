@@ -28,7 +28,7 @@ public static class EntityToInternalDto
             Instructions: prescription.Instructions,
             IsExpired: prescription.IsExpired,
             CanRefill: prescription.CanRefill,
-            CreatedAt: prescription.CreatedAt
+            CreatedAt: prescription.Metadata.CreatedAt
         );
     }
 

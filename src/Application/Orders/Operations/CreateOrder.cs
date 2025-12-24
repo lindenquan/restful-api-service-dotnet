@@ -49,7 +49,7 @@ public sealed class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Int
             Notes = request.Notes,
             OrderDate = DateTime.UtcNow,
             Status = OrderStatus.Pending,
-            CreatedBy = request.CreatedBy
+            Metadata = { CreatedBy = request.CreatedBy }
         };
 
         await _unitOfWork.PrescriptionOrders.AddAsync(order, ct);

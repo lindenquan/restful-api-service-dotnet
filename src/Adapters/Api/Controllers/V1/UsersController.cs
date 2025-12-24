@@ -10,18 +10,18 @@ using Microsoft.AspNetCore.Mvc;
 namespace Adapters.Api.Controllers.V1;
 
 /// <summary>
-/// Admin-only endpoints for managing API keys and users.
+/// Admin-only endpoints for managing users.
 /// </summary>
 [ApiController]
 [ApiVersion("1.0")]
-[Route("api/v{version:apiVersion}/admin")]
+[Route("api/v{version:apiVersion}/users")]
 [Authorize(Policy = PolicyNames.AdminOnly)]
-public class AdminController : ControllerBase
+public class UsersController : ControllerBase
 {
     private readonly IMediator _mediator;
     private readonly ICurrentUserService _currentUser;
 
-    public AdminController(IMediator mediator, ICurrentUserService currentUser)
+    public UsersController(IMediator mediator, ICurrentUserService currentUser)
     {
         _mediator = mediator;
         _currentUser = currentUser;
@@ -31,13 +31,13 @@ public class AdminController : ControllerBase
     /// Create a new user with API key.
     /// The plain-text API key is returned ONLY in this response - store it securely!
     /// </summary>
-    [HttpPost("api-keys")]
+    [HttpPost]
     [ProducesResponseType(typeof(CreateUserResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<CreateUserResponse>> CreateApiKey(
+    public async Task<ActionResult<CreateUserResponse>> Create(
         [FromBody] CreateUserRequest request,
         CancellationToken ct)
     {
@@ -61,7 +61,7 @@ public class AdminController : ControllerBase
                 UserType: result.UserType.ToString(),
                 Message: "Store this API key securely - it will NOT be shown again!");
 
-            return CreatedAtAction(nameof(CreateApiKey), new { id = result.UserId }, response);
+            return CreatedAtAction(nameof(Create), new { id = result.UserId }, response);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {

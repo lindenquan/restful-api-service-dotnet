@@ -65,8 +65,7 @@ public class RootAdminInitializer : IHostedService
                 existingRootAdmin.UserType = UserType.Admin;
                 existingRootAdmin.IsActive = true;
                 existingRootAdmin.Description = "System root admin - updated on startup";
-                existingRootAdmin.UpdatedAt = DateTime.UtcNow;
-                existingRootAdmin.UpdatedBy = "SYSTEM";
+                existingRootAdmin.Metadata.UpdatedBy = "SYSTEM";
 
                 unitOfWork.Users.Update(existingRootAdmin);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -91,8 +90,7 @@ public class RootAdminInitializer : IHostedService
                     UserType = UserType.Admin,
                     IsActive = true,
                     Description = "System root admin - created on first startup",
-                    CreatedAt = DateTime.UtcNow,
-                    CreatedBy = "SYSTEM"
+                    Metadata = { CreatedBy = "SYSTEM" }
                 };
 
                 await unitOfWork.Users.AddAsync(rootAdmin, cancellationToken);

@@ -1,13 +1,11 @@
 namespace Entities;
 
 /// <summary>
-/// Base entity with common properties for all entities.
-/// Includes audit fields and soft delete support.
+/// Metadata for audit fields and soft delete support.
+/// Stored as a sub-document in MongoDB.
 /// </summary>
-public abstract class BaseEntity
+public class EntityMetadata
 {
-    public int Id { get; set; }
-
     // Audit fields - creation
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedBy { get; set; }
@@ -20,5 +18,19 @@ public abstract class BaseEntity
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
     public string? DeletedBy { get; set; }
+}
+
+/// <summary>
+/// Base entity with common properties for all entities.
+/// Metadata fields are stored in a nested Metadata object.
+/// </summary>
+public abstract class BaseEntity
+{
+    public int Id { get; set; }
+
+    /// <summary>
+    /// Audit and soft-delete metadata stored as sub-document.
+    /// </summary>
+    public EntityMetadata Metadata { get; set; } = new();
 }
 

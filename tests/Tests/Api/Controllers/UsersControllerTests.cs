@@ -11,15 +11,15 @@ using Moq;
 namespace Tests.Api.Controllers;
 
 /// <summary>
-/// Unit tests for AdminController.
+/// Unit tests for UsersController.
 /// </summary>
-public class AdminControllerTests
+public class UsersControllerTests
 {
     private readonly Mock<IMediator> _mediatorMock;
     private readonly Mock<ICurrentUserService> _currentUserMock;
-    private readonly AdminController _controller;
+    private readonly UsersController _controller;
 
-    public AdminControllerTests()
+    public UsersControllerTests()
     {
         _mediatorMock = new Mock<IMediator>();
         _currentUserMock = new Mock<ICurrentUserService>();
@@ -27,11 +27,11 @@ public class AdminControllerTests
         _currentUserMock.Setup(c => c.UserName).Returns("test-admin");
         _currentUserMock.Setup(c => c.UserId).Returns(1);
 
-        _controller = new AdminController(_mediatorMock.Object, _currentUserMock.Object);
+        _controller = new UsersController(_mediatorMock.Object, _currentUserMock.Object);
     }
 
     [Fact]
-    public async Task CreateApiKey_WithValidRequest_ShouldReturnCreatedResult()
+    public async Task Create_WithValidRequest_ShouldReturnCreatedResult()
     {
         // Arrange
         var request = new CreateUserRequest(
@@ -53,7 +53,7 @@ public class AdminControllerTests
             .ReturnsAsync(commandResult);
 
         // Act
-        var result = await _controller.CreateApiKey(request, CancellationToken.None);
+        var result = await _controller.Create(request, CancellationToken.None);
 
         // Assert
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
@@ -68,7 +68,7 @@ public class AdminControllerTests
     }
 
     [Fact]
-    public async Task CreateApiKey_WithDuplicateEmail_ShouldReturnConflict()
+    public async Task Create_WithDuplicateEmail_ShouldReturnConflict()
     {
         // Arrange
         var request = new CreateUserRequest(
@@ -81,14 +81,14 @@ public class AdminControllerTests
             .ThrowsAsync(new InvalidOperationException("User with email 'existing@example.com' already exists."));
 
         // Act
-        var result = await _controller.CreateApiKey(request, CancellationToken.None);
+        var result = await _controller.Create(request, CancellationToken.None);
 
         // Assert
         result.Result.Should().BeOfType<ConflictObjectResult>();
     }
 
     [Fact]
-    public async Task CreateApiKey_ShouldPassCurrentUserAsCreatedBy()
+    public async Task Create_ShouldPassCurrentUserAsCreatedBy()
     {
         // Arrange
         var request = new CreateUserRequest(
@@ -104,7 +104,7 @@ public class AdminControllerTests
             .ReturnsAsync(new CreateApiKeyUserResult(1, "key", "prefix", "user", "email", UserType.Admin));
 
         // Act
-        await _controller.CreateApiKey(request, CancellationToken.None);
+        await _controller.Create(request, CancellationToken.None);
 
         // Assert
         capturedCommand.Should().NotBeNull();
@@ -112,7 +112,7 @@ public class AdminControllerTests
     }
 
     [Fact]
-    public async Task CreateApiKey_AdminUser_ShouldSetCorrectUserType()
+    public async Task Create_AdminUser_ShouldSetCorrectUserType()
     {
         // Arrange
         var request = new CreateUserRequest(
@@ -128,7 +128,7 @@ public class AdminControllerTests
             .ReturnsAsync(new CreateApiKeyUserResult(1, "key", "prefix", "user", "email", UserType.Admin));
 
         // Act
-        await _controller.CreateApiKey(request, CancellationToken.None);
+        await _controller.Create(request, CancellationToken.None);
 
         // Assert
         capturedCommand.Should().NotBeNull();

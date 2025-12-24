@@ -26,8 +26,8 @@ public static class EntityToInternalDto
             Notes: order.Notes,
             FulfilledDate: order.FulfilledDate,
             PickupDate: order.PickupDate,
-            CreatedAt: order.CreatedAt,
-            UpdatedAt: order.UpdatedAt
+            CreatedAt: order.Metadata.CreatedAt,
+            UpdatedAt: order.Metadata.UpdatedAt
         );
     }
 
