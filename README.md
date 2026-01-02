@@ -173,6 +173,17 @@ Install the [EditorConfig for VS Code](https://marketplace.visualstudio.com/item
 | Final newline | Yes |
 | Trailing whitespace | Trimmed |
 
+### Why LF Line Endings?
+
+This project uses **LF** (`\n`) as the standard line ending for all files. LF is the modern cross-platform standard:
+
+- ✅ **All OS support it** - Linux, macOS (native), Windows (since Windows 10)
+- ✅ **Git friendly** - No noisy CRLF↔LF diff changes
+- ✅ **Docker/CI compatible** - Shell scripts require LF
+- ✅ **Smaller files** - 1 byte vs 2 bytes per line ending
+
+Modern Windows tools handle LF perfectly: VS Code, Visual Studio 2017+, Notepad (Win10+), PowerShell, Git Bash.
+
 ---
 
 ## API Endpoints
