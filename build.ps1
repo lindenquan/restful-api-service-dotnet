@@ -117,10 +117,7 @@ switch ($Command) {
     'test-api-e2e' {
         $totalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         if ($Env -eq 'local') {
-            Invoke-BuildCommand -Name "Start Docker (MongoDB + Redis)" -ScriptBlock {
-                docker compose up -d mongodb redis
-                Start-Sleep -Seconds 10
-            }
+            & $PSCommandPath docker-up
         }
         try {
             $env:ASPNETCORE_ENVIRONMENT = $Env
@@ -166,14 +163,12 @@ switch ($Command) {
     }
     'docker-up' {
         Invoke-BuildCommand -Name "Start MongoDB + Redis" -ScriptBlock {
-            docker compose up -d mongodb redis
-            Start-Sleep -Seconds 10
+            docker compose up -d mongodb redis --wait db-migrate
         }
     }
     'docker-up-api' {
         Invoke-BuildCommand -Name "Start MongoDB + Redis + API" -ScriptBlock {
-            docker compose up -d --build
-            Start-Sleep -Seconds 20
+            docker compose up -d --build --wait api
         }
     }
     'docker-down' {
