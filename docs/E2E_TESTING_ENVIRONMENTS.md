@@ -81,59 +81,34 @@ The key insight: **E2E tests are environment-agnostic**. They just need an API t
 
 #### Local Environment (Default)
 
-```bash
+```powershell
 # Automatic (recommended) - starts/stops Docker automatically
-just test-api-e2e
+./build.ps1 test-api-e2e
 
 # Equivalent to:
-just test-api-e2e local
+./build.ps1 test-api-e2e -Env local
 
 # Manual control
-just docker-up
-ASPNETCORE_ENVIRONMENT=local dotnet test tests/Tests.Api.E2E
-just docker-down
+./build.ps1 docker-up
+$env:ASPNETCORE_ENVIRONMENT="local"; dotnet test tests/Tests.Api.E2E
+./build.ps1 docker-down
 ```
 
 #### Dev Environment
 
-```bash
+```powershell
 # Uses real dev MongoDB/Redis from appsettings.dev.json
-just test-api-e2e dev
+./build.ps1 test-api-e2e -Env dev
 
 # Manual
-ASPNETCORE_ENVIRONMENT=dev dotnet test tests/Tests.Api.E2E
+$env:ASPNETCORE_ENVIRONMENT="dev"; dotnet test tests/Tests.Api.E2E
 ```
 
 #### Stage Environment
 
-```bash
+```powershell
 # Uses real stage MongoDB/Redis from appsettings.stage.json
-just test-api-e2e stage
-```
-
-### Web E2E Tests
-
-#### Local Environment (Default)
-
-```bash
-# Automatic (recommended) - starts/stops Docker automatically
-just web-test-e2e
-
-# Equivalent to:
-just web-test-e2e local
-
-# Manual control
-just docker-up-api
-dotnet test tests/Tests.Web.E2E
-just docker-down
-```
-
-#### Dev Environment
-
-```bash
-# Assumes dev API is running on localhost:5000
-# (or update WebE2ETestFixture.ApiBaseUrl)
-just web-test-e2e dev
+./build.ps1 test-api-e2e -Env stage
 ```
 
 ## 🔧 How It Works
@@ -156,32 +131,36 @@ protected override IHost CreateHost(IHostBuilder builder)
 ```
 
 
-### 2. Justfile - Conditional Docker Startup
+### 2. build.ps1 - Conditional Docker Startup
 
-The justfile only starts Docker when `env=local`:
+The build.ps1 script only starts Docker when `Env=local`:
 
-```bash
-# justfile
-test-api-e2e env="local":
-    #!/usr/bin/env sh
-    set -e
-    if [ "{{env}}" = "local" ]; then \
-        echo "🚀 Starting Docker services..."; \
-        docker compose up -d mongodb redis; \
-        sleep 10s; \
-    fi
-    echo "🚀 Running API E2E tests (ASPNETCORE_ENVIRONMENT={{env}})..."
-    ASPNETCORE_ENVIRONMENT="{{env}}" dotnet test tests/Tests.Api.E2E --verbosity minimal
-    if [ "{{env}}" = "local" ]; then \
-        echo "🛑 Stopping Docker services..."; \
-        docker compose down; \
-    fi
+```powershell
+# build.ps1 test-api-e2e command
+'test-api-e2e' {
+    if ($Env -eq 'local') {
+        Write-Host "🚀 Starting Docker services (MongoDB + Redis)..."
+        docker compose up -d mongodb redis
+        Start-Sleep -Seconds 10
+    }
+    try {
+        Write-Host "🚀 Running API E2E tests (ASPNETCORE_ENVIRONMENT=$Env)..."
+        $env:ASPNETCORE_ENVIRONMENT = $Env
+        dotnet test tests/Tests.Api.E2E --verbosity minimal
+    }
+    finally {
+        if ($Env -eq 'local') {
+            Write-Host "🛑 Stopping Docker services..."
+            docker compose down
+        }
+    }
+}
 ```
 
 **Key Points:**
-- Default parameter: `env="local"`
-- Conditional Docker: Only when `env=local`
-- Environment variable: `ASPNETCORE_ENVIRONMENT={{env}}`
+- Default parameter: `$Env = 'local'`
+- Conditional Docker: Only when `$Env -eq 'local'`
+- Environment variable: `$env:ASPNETCORE_ENVIRONMENT = $Env`
 
 ### 3. Configuration Files
 
@@ -209,9 +188,9 @@ config/
 - **Production verification**: Can run smoke tests against prod
 
 ### ✅ Clear Intent
-- `just test-api-e2e` → local (Docker)
-- `just test-api-e2e dev` → dev (real servers)
-- `just test-api-e2e stage` → stage (real servers)
+- `./build.ps1 test-api-e2e` → local (Docker)
+- `./build.ps1 test-api-e2e -Env dev` → dev (real servers)
+- `./build.ps1 test-api-e2e -Env stage` → stage (real servers)
 
 ### ✅ No Duplication
 - Single `docker-compose.yml`
@@ -222,18 +201,13 @@ config/
 
 ### For Local Environment
 - **Requires Docker** - MongoDB and Redis must be running
-- **Automatic management** - `just test-api-e2e` handles Docker lifecycle
+- **Automatic management** - `./build.ps1 test-api-e2e` handles Docker lifecycle
 - **Port conflicts** - Ensure ports 27017, 6379, 5000 are available
 
 ### For Other Environments
 - **No Docker needed** - Uses real servers from config
 - **Network access** - Must be able to reach dev/stage/prod servers
 - **Credentials** - May need VPN or authentication
-
-### For Web E2E Tests
-- **API must be running** - Web tests don't start the API
-- **Local**: Use `just web-test-e2e` (starts Docker API)
-- **Other envs**: Start API separately, then run tests
 
 ## 📊 Comparison: Before vs After
 
@@ -249,36 +223,25 @@ config/
 
 ### Run API E2E tests against different environments
 
-```bash
+```powershell
 # Local (Docker) - default
-just test-api-e2e
+./build.ps1 test-api-e2e
 
 # Dev (real servers)
-just test-api-e2e dev
+./build.ps1 test-api-e2e -Env dev
 
 # Stage (real servers)
-just test-api-e2e stage
-```
-
-### Run Web E2E tests against different environments
-
-```bash
-# Local (Docker) - default
-just web-test-e2e
-
-# Dev (assumes API running on localhost:5000)
-just web-test-e2e dev
+./build.ps1 test-api-e2e -Env stage
 ```
 
 ### Run all tests in CI/CD
 
-```bash
+```powershell
 # Test against dev environment before deploying
-just test-api-e2e dev
-just web-test-e2e dev
+./build.ps1 test-api-e2e -Env dev
 
 # Or use the ultimate pipeline (uses local by default)
-just ultimate
+./build.ps1 ultimate
 ```
 
 ## 🎓 Summary
@@ -288,7 +251,7 @@ just ultimate
 - **Local environment** → Docker Compose (for development)
 - **Other environments** → Real servers (for verification)
 - **Same tests** → Different configurations
-- **Clear intent** → `just test-api-e2e [env]`
+- **Clear intent** → `./build.ps1 test-api-e2e [-Env env]`
 
 This architecture gives you maximum flexibility while maintaining simplicity and clarity.
 

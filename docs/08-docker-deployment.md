@@ -6,9 +6,10 @@ The project includes Docker configuration for:
 
 | File | Purpose |
 |------|---------|
-| `docker-compose.yml` | E2E testing environment |
-| `src/Api/Dockerfile` | API container image |
-| `tools/DatabaseMigrations/Dockerfile` | Migration runner image |
+| `docker-compose.yml` | Local development and E2E testing |
+| `src/Adapters/Api/Dockerfile` | API container image |
+| `Dockerfile.lambda` | AWS Lambda deployment image |
+| `Dockerfile.eks` | AWS EKS deployment image |
 
 ---
 
@@ -56,27 +57,36 @@ docker compose down -v
 
 ```bash
 # Build API image
-docker build -t prescription-api -f src/Api/Dockerfile .
+docker build -t prescription-api -f src/Adapters/Api/Dockerfile .
 
-# Build migrations image
-docker build -t prescription-migrations -f tools/DatabaseMigrations/Dockerfile .
+# Build Lambda image
+./build.ps1 docker-build-lambda
+
+# Build EKS image
+./build.ps1 docker-build-eks
+
+# Build all images
+./build.ps1 docker-build-all
 ```
 
 ---
 
 ## E2E Testing Stack
 
-Separate compose file for E2E tests:
+Uses the same docker-compose.yml for E2E tests:
 
 ```bash
-# Start E2E dependencies
-docker-compose -f docker-compose.e2e.yml up -d
+# Start MongoDB and Redis
+./build.ps1 docker-up
 
-# Run tests
-dotnet test tests/Tests.ApiClient.E2E
+# Run API E2E tests
+./build.ps1 test-api-e2e
+
+# Or run tests against dev/stage environments
+./build.ps1 test-api-e2e -Env dev
 
 # Clean up
-docker-compose -f docker-compose.e2e.yml down -v
+./build.ps1 docker-down
 ```
 
 ---

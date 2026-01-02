@@ -14,7 +14,7 @@ A production-ready REST API built with **.NET 10** and **Clean Architecture**.
 - ✅ Comprehensive test suite
 - ✅ Security Headers
 - ✅ Health Checks (MongoDB, Redis, external services)
-- ✅ Blazor WebAssembly client with type-safe API clients (Refit)
+
 
 ---
 
@@ -24,16 +24,18 @@ A production-ready REST API built with **.NET 10** and **Clean Architecture**.
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Docker](https://www.docker.com/) (for MongoDB/Redis)
-- [Just](https://github.com/casey/just) - Cross-platform command runner
+- [PowerShell 7.5+](https://github.com/PowerShell/PowerShell) - Cross-platform automation
 
-#### Installing Just on Windows
+#### Installing PowerShell 7.5+
+
+PowerShell 7.5 requires .NET 9. If you already have .NET 10 installed, install .NET 9 alongside it:
 
 ```bash
-# Install using Scoop
-scoop install just
+# Install .NET 9 alongside .NET 10
+dnvm install 9.0.308
 
-# Add Git bin to PATH (Just requires sh.exe)
-# Add C:\Program Files\Git\bin to your system PATH environment variable
+# Then install PowerShell as a global tool
+dotnet tool install --global PowerShell
 ```
 
 ### Run Locally (Development)
@@ -47,13 +49,13 @@ cd restful-api-service-dotnet
 cp .env.example .env
 
 # Start Docker services (MongoDB + Redis)
-just docker-up
+./build.ps1 docker-up
 
 # Run API (reads ASPNETCORE_ENVIRONMENT from .env file)
-just run
+./build.ps1 run
 
 # Or run with explicit environment override
-just local
+./build.ps1 local
 
 # API available at http://localhost:5000
 # Swagger UI available at http://localhost:5000/swagger
@@ -71,13 +73,13 @@ just local
 
 ```bash
 # Start MongoDB + Redis only
-just docker-up
+./build.ps1 docker-up
 
 # Start MongoDB + Redis + API (all in Docker)
-just docker-up-api
+./build.ps1 docker-up-api
 
 # Stop all services
-just docker-down
+./build.ps1 docker-down
 
 # API available at http://localhost:5000
 # Health check: http://localhost:5000/health
@@ -90,23 +92,23 @@ just docker-down
 | Command | Description |
 |---------|-------------|
 | **API Commands** | |
-| `just run` | Run API (uses environment from `.env` file) |
-| `just local` | Run API in local mode (explicit override) |
-| `just dev` | Run API in dev mode (explicit override) |
-| `just stage` | Run API in stage mode (explicit override) |
-| `just build` | Build the solution |
-| `just test` | Run unit tests |
-| `just test-coverage` | Run tests with coverage |
-| `just test-api-e2e [env]` | Run API E2E tests (default: local with Docker) |
-| `just format` | Format code |
-| `just clean` | Clean build artifacts |
+| `./build.ps1 run` | Run API (uses environment from `.env` file) |
+| `./build.ps1 local` | Run API in local mode (explicit override) |
+| `./build.ps1 dev` | Run API in dev mode (explicit override) |
+| `./build.ps1 stage` | Run API in stage mode (explicit override) |
+| `./build.ps1 build` | Build the solution |
+| `./build.ps1 test` | Run unit tests |
+| `./build.ps1 test-coverage` | Run tests with coverage |
+| `./build.ps1 test-api-e2e [-Env env]` | Run API E2E tests (default: local with Docker) |
+| `./build.ps1 format` | Format code |
+| `./build.ps1 clean` | Clean build artifacts |
 | **Docker Commands** | |
-| `just docker-up` | Start MongoDB + Redis only |
-| `just docker-up-api` | Start MongoDB + Redis + API (all in Docker) |
-| `just docker-down` | Stop all services |
+| `./build.ps1 docker-up` | Start MongoDB + Redis only |
+| `./build.ps1 docker-up-api` | Start MongoDB + Redis + API (all in Docker) |
+| `./build.ps1 docker-down` | Stop all services |
 | **Test Commands** | |
-| `just test-all` | Run all tests (unit + E2E) |
-| `just ultimate` | Run complete CI/CD pipeline |
+| `./build.ps1 test-all` | Run all tests (unit + E2E) |
+| `./build.ps1 ultimate` | Run complete CI/CD pipeline |
 
 ---
 
@@ -230,7 +232,7 @@ REDIS_PORT=6379
 
 1. **API Application**: Loads `.env` file at startup via DotNetEnv, setting `ASPNETCORE_ENVIRONMENT` before configuration is built
 2. **Docker Compose**: Uses `.env` file for service configuration (MongoDB credentials, Redis port)
-3. **Tests**: Use explicit `ASPNETCORE_ENVIRONMENT` variable (via `just test-api-e2e`)
+3. **Tests**: Use explicit `ASPNETCORE_ENVIRONMENT` variable (via `./build.ps1 test-api-e2e`)
 
 ### Environment Guide
 

@@ -4,33 +4,20 @@
 
 ### API E2E Tests
 
-```bash
+```powershell
 # Local (Docker) - Default
-just test-api-e2e
+./build.ps1 test-api-e2e
 
 # Dev environment
-just test-api-e2e dev
+./build.ps1 test-api-e2e -Env dev
 
 # Stage environment
-just test-api-e2e stage
-```
-
-### Web E2E Tests
-
-```bash
-# Local (Docker) - Default
-just web-test-e2e
-
-# Dev environment
-just web-test-e2e dev
-
-# Stage environment
-just web-test-e2e stage
+./build.ps1 test-api-e2e -Env stage
 ```
 
 ## 🎯 What Happens
 
-### Local Environment (`just test-api-e2e`)
+### Local Environment (`./build.ps1 test-api-e2e`)
 
 ```
 1. 🚀 Start Docker (MongoDB + Redis)
@@ -39,7 +26,7 @@ just web-test-e2e stage
 4. 🛑 Stop Docker
 ```
 
-### Other Environments (`just test-api-e2e dev`)
+### Other Environments (`./build.ps1 test-api-e2e -Env dev`)
 
 ```
 1. 🧪 Run tests with ASPNETCORE_ENVIRONMENT=dev
@@ -72,44 +59,44 @@ config/
 
 ### Run specific test class
 
-```bash
+```powershell
 # Local
-just docker-up
-ASPNETCORE_ENVIRONMENT=local dotnet test tests/Tests.Api.E2E --filter "OrdersApiE2ETests"
-just docker-down
+./build.ps1 docker-up
+$env:ASPNETCORE_ENVIRONMENT="local"; dotnet test tests/Tests.Api.E2E --filter "OrdersApiE2ETests"
+./build.ps1 docker-down
 
 # Dev
-ASPNETCORE_ENVIRONMENT=dev dotnet test tests/Tests.Api.E2E --filter "OrdersApiE2ETests"
+$env:ASPNETCORE_ENVIRONMENT="dev"; dotnet test tests/Tests.Api.E2E --filter "OrdersApiE2ETests"
 ```
 
 ### Keep Docker running for multiple test runs
 
-```bash
+```powershell
 # Start Docker once
-just docker-up
+./build.ps1 docker-up
 
 # Run tests multiple times
-ASPNETCORE_ENVIRONMENT=local dotnet test tests/Tests.Api.E2E
-ASPNETCORE_ENVIRONMENT=local dotnet test tests/Tests.Api.E2E --filter "OrdersApiE2ETests"
+$env:ASPNETCORE_ENVIRONMENT="local"; dotnet test tests/Tests.Api.E2E
+$env:ASPNETCORE_ENVIRONMENT="local"; dotnet test tests/Tests.Api.E2E --filter "OrdersApiE2ETests"
 
 # Stop Docker when done
-just docker-down
+./build.ps1 docker-down
 ```
 
 ### Debug tests
 
-```bash
+```powershell
 # Start Docker
-just docker-up
+./build.ps1 docker-up
 
 # Run with detailed output
-ASPNETCORE_ENVIRONMENT=local dotnet test tests/Tests.Api.E2E --verbosity detailed
+$env:ASPNETCORE_ENVIRONMENT="local"; dotnet test tests/Tests.Api.E2E --verbosity detailed
 
 # Or run in IDE with debugger
 # (Set ASPNETCORE_ENVIRONMENT=local in launch settings)
 
 # Stop Docker
-just docker-down
+./build.ps1 docker-down
 ```
 
 ## 🚨 Troubleshooting
@@ -117,22 +104,21 @@ just docker-down
 ### "API is not accessible"
 - Check Docker is running: `docker ps`
 - Check ports: `netstat -an | findstr "27017 6379 5000"`
-- Restart Docker: `just docker-down && just docker-up-api`
+- Restart Docker: `./build.ps1 docker-down; ./build.ps1 docker-up-api`
 
 ### "Connection refused" (MongoDB/Redis)
 - Verify Docker containers: `docker compose ps`
 - Check logs: `docker compose logs mongodb redis`
-- Restart: `just docker-down && just docker-up`
+- Restart: `./build.ps1 docker-down; ./build.ps1 docker-up`
 
 ### Tests fail on dev/stage
 - Verify network access to servers
 - Check VPN connection
 - Verify credentials in config files
-- Test connection: `curl http://dev-api.example.com/health`
+- Test connection: `Invoke-WebRequest http://dev-api.example.com/health`
 
 ## 📚 More Information
 
 - [E2E Testing Environments](E2E_TESTING_ENVIRONMENTS.md) - Complete guide
-- [Web E2E Testing](WEB_E2E_TESTING.md) - Playwright details
 - [Testing Strategy](07-testing-strategy.md) - Overall approach
 

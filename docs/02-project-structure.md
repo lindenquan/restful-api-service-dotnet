@@ -15,7 +15,8 @@ src/
 ├── Application/         # Use cases, operations (feature-based)
 └── Adapters/            # Interface implementations
     ├── Api/             # HTTP layer, controllers, middleware
-    └── Persistence/     # Database, cache, external services
+    ├── Cache/           # L1/L2 cache implementations
+    └── Persistence/     # Database, external services
 
 tests/
 ├── Tests/          # Unit tests (business logic + L1 cache)

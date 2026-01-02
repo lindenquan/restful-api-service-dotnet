@@ -4,11 +4,14 @@
 
 | Environment | File | Purpose |
 |-------------|------|---------|
-| `dev` | `appsettings.dev.json` | Local development (InMemory DB) |
+| `local` | `appsettings.local.json` | Local development (Docker Compose) |
+| `dev` | `appsettings.dev.json` | Development environment |
 | `stage` | `appsettings.stage.json` | Staging environment |
 | `prod` | `appsettings.prod.json` | Production |
-| `e2e` | `appsettings.e2e.json` | End-to-end testing |
 | `amr-prod` | `appsettings.amr-prod.json` | AMR region production |
+| `amr-stage` | `appsettings.amr-stage.json` | AMR region staging |
+| `eu-prod` | `appsettings.eu-prod.json` | EU region production |
+| `eu-stage` | `appsettings.eu-stage.json` | EU region staging |
 
 ### Environment Chaining
 

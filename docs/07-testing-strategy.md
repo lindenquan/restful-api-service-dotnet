@@ -141,22 +141,22 @@ tests/Tests.Api.E2E/
 
 ```bash
 # 1. Start MongoDB and Redis
-docker-compose up -d
+./build.ps1 docker-up
 
 # 2. Wait for healthy containers
-docker-compose ps
+docker compose ps
 
 # 3. Run API E2E tests
 dotnet test tests/Tests.Api.E2E
 
-# Or use justfile
-just test-api-e2e
+# Or use build.ps1 (handles Docker automatically for local)
+./build.ps1 test-api-e2e
 
 # 4. Run specific test class
 dotnet test tests/Tests.Api.E2E --filter "FullyQualifiedName~OrdersApiE2ETests"
 
 # 5. Stop dependencies
-docker-compose down -v
+./build.ps1 docker-down
 ```
 
 ### API E2E Test Example
@@ -264,7 +264,7 @@ public async Task UpdateOrder_ShouldInvalidateCache()
         └───────────┘
 ```
 
-**Note**: Web app (Blazor WASM) will have its own unit tests for components and services.
+
 
 ---
 
