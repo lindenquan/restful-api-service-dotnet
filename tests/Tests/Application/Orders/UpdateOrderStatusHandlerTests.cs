@@ -1,6 +1,6 @@
 using Application.Interfaces.Repositories;
 using Application.Orders.Operations;
-using Entities;
+using Domain;
 using FluentAssertions;
 using Moq;
 

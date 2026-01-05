@@ -118,7 +118,7 @@ public class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, InternalOr
 ### Controller Example
 
 ```csharp
-// src/Adapters/Api/Controllers/V1/OrdersController.cs
+// src/Infrastructure/Api/Controllers/V1/OrdersController.cs
 [HttpGet("{id}")]
 public async Task<ActionResult<OrderDto>> GetById(int id, CancellationToken ct)
 {

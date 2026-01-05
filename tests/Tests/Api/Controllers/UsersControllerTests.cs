@@ -1,8 +1,8 @@
-using Adapters.Api.Controllers.V1;
-using Adapters.Api.Services;
-using Application.ApiKeys.Operations;
+using Infrastructure.Api.Controllers.V1;
+using Infrastructure.Api.Services;
+using Application.Users.Operations;
 using DTOs.Shared;
-using Entities;
+using Domain;
 using FluentAssertions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;

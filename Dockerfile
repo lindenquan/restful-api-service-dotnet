@@ -6,19 +6,19 @@ WORKDIR /src
 
 # Copy solution and project files
 COPY RestfulApiService.slnx .
-COPY src/Entities/Entities.csproj src/Entities/
+COPY src/Domain/Domain.csproj src/Domain/
 COPY src/DTOs/DTOs.csproj src/DTOs/
 COPY src/Application/Application.csproj src/Application/
-COPY src/Adapters/Adapters.csproj src/Adapters/
+COPY src/Infrastructure/Infrastructure.csproj src/Infrastructure/
 
 # Restore dependencies
-RUN dotnet restore src/Adapters/Adapters.csproj
+RUN dotnet restore src/Infrastructure/Infrastructure.csproj
 
 # Copy source code
 COPY src/ src/
 
 # Build and publish
-RUN dotnet publish src/Adapters/Adapters.csproj -c Release -o /app/publish
+RUN dotnet publish src/Infrastructure/Infrastructure.csproj -c Release -o /app/publish
 
 # Runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
@@ -34,5 +34,5 @@ COPY config/ ./config/
 
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "Adapters.dll"]
+ENTRYPOINT ["dotnet", "Infrastructure.dll"]
 

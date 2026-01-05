@@ -1,6 +1,6 @@
 using Application.Interfaces.Repositories;
 using Application.Orders.Shared;
-using Entities;
+using Domain;
 using MediatR;
 
 namespace Application.Orders.Operations;

@@ -1,6 +1,6 @@
 using Application.Interfaces.Repositories;
 using Application.Prescriptions.Shared;
-using Entities;
+using Domain;
 using MediatR;
 
 namespace Application.Prescriptions.Operations;

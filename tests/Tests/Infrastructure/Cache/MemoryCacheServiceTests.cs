@@ -1,4 +1,4 @@
-using Adapters.Cache;
+using Infrastructure.Cache;
 using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;

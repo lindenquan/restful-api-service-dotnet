@@ -72,7 +72,7 @@ src/
 │       ├── InternalOrderDto.cs       # Internal DTO (Status: OrderStatus enum)
 │       └── EntityToInternalDto.cs    # Entity → Internal mapper
 │
-└── Adapters/Api/Controllers/
+└── Infrastructure/Api/Controllers/
     ├── V1/Mappers/
     │   └── OrderMapper.cs            # Internal DTO → V1 DTO (enum → string)
     │
@@ -183,7 +183,7 @@ public static class EntityToInternalDto
 ### Internal DTO → V1 DTO (Adapter Layer)
 
 ```csharp
-// src/Adapters/Api/Controllers/V1/Mappers/OrderMapper.cs
+// src/Infrastructure/Api/Controllers/V1/Mappers/OrderMapper.cs
 public static class OrderMapper
 {
     public static OrderDto ToV1Dto(InternalOrderDto internalDto) => new(
@@ -202,7 +202,7 @@ public static class OrderMapper
 ### Internal DTO → V2 DTO (Adapter Layer)
 
 ```csharp
-// src/Adapters/Api/Controllers/V2/Mappers/PrescriptionOrderMapper.cs
+// src/Infrastructure/Api/Controllers/V2/Mappers/PrescriptionOrderMapper.cs
 public static class PrescriptionOrderMapper
 {
     public static PrescriptionOrderDto ToV2Dto(InternalOrderDto internalDto) => new(

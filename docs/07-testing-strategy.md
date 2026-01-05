@@ -46,7 +46,7 @@ This project uses a **two-tier testing strategy**:
 ```
 tests/Tests/
 ├── Domain/
-│   └── Entities/
+│   └── Domain/
 │       ├── OrderTests.cs
 │       └── UserTests.cs
 │

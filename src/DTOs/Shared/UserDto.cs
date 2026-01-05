@@ -1,4 +1,4 @@
-using Entities;
+using Domain;
 
 namespace DTOs.Shared;
 

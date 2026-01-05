@@ -1,4 +1,4 @@
-using Adapters.Persistence.Security;
+using Infrastructure.Persistence.Security;
 using FluentAssertions;
 
 namespace Tests.Infrastructure.Security;

@@ -7,7 +7,7 @@ The project includes Docker configuration for:
 | File | Purpose |
 |------|---------|
 | `docker-compose.yml` | Local development and E2E testing |
-| `src/Adapters/Api/Dockerfile` | API container image |
+| `src/Infrastructure/Api/Dockerfile` | API container image |
 | `Dockerfile.lambda` | AWS Lambda deployment image |
 | `Dockerfile.eks` | AWS EKS deployment image |
 
@@ -57,7 +57,7 @@ docker compose down -v
 
 ```bash
 # Build API image
-docker build -t prescription-api -f src/Adapters/Api/Dockerfile .
+docker build -t prescription-api -f src/Infrastructure/Api/Dockerfile .
 
 # Build Lambda image
 ./build.ps1 docker-build-lambda

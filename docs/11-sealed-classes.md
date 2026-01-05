@@ -126,11 +126,11 @@ public sealed class MemoryCacheService : ICacheService
 ```
 
 **Files:**
-- `src/Adapters/Cache/MemoryCacheService.cs`
-- `src/Adapters/Cache/RedisCacheService.cs`
-- `src/Adapters/Cache/HybridCacheService.cs`
-- `src/Adapters/Cache/NullCacheService.cs`
-- `src/Adapters/Api/Services/CurrentUserService.cs`
+- `src/Infrastructure/Cache/MemoryCacheService.cs`
+- `src/Infrastructure/Cache/RedisCacheService.cs`
+- `src/Infrastructure/Cache/HybridCacheService.cs`
+- `src/Infrastructure/Cache/NullCacheService.cs`
+- `src/Infrastructure/Api/Services/CurrentUserService.cs`
 
 ### **Repository Implementations** (5 classes)
 
@@ -142,11 +142,11 @@ public sealed class MongoUserRepository : MongoRepository<User>, IUserRepository
 ```
 
 **Files:**
-- `src/Adapters/Persistence/Repositories/MongoUserRepository.cs`
-- `src/Adapters/Persistence/Repositories/MongoPrescriptionOrderRepository.cs`
-- `src/Adapters/Persistence/Repositories/MongoPrescriptionRepository.cs`
-- `src/Adapters/Persistence/Repositories/MongoPatientRepository.cs`
-- `src/Adapters/Persistence/Repositories/MongoUnitOfWork.cs`
+- `src/Infrastructure/Persistence/Repositories/MongoUserRepository.cs`
+- `src/Infrastructure/Persistence/Repositories/MongoPrescriptionOrderRepository.cs`
+- `src/Infrastructure/Persistence/Repositories/MongoPrescriptionRepository.cs`
+- `src/Infrastructure/Persistence/Repositories/MongoPatientRepository.cs`
+- `src/Infrastructure/Persistence/Repositories/MongoUnitOfWork.cs`
 
 ---
 

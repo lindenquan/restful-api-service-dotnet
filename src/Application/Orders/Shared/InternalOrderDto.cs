@@ -1,4 +1,4 @@
-using Entities;
+using Domain;
 
 namespace Application.Orders.Shared;
 

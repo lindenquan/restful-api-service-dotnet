@@ -4,16 +4,16 @@
 
 This project follows **Clean Architecture** with a **hybrid file organization**:
 
-- **Entities Layer**: Core business entities (no dependencies)
-- **Application Layer**: Use cases, operations (feature-based)
-- **Adapters Layer**: Interface implementations (Api + Persistence)
+- **Domain Layer**: Core business entities (Enterprise Business Rules - no dependencies)
+- **Application Layer**: Use cases, operations (Application Business Rules - feature-based)
+- **Infrastructure Layer**: Interface implementations (Interface Adapters - Api + Persistence)
 
 ```
 src/
-├── Entities/            # Core business entities (no dependencies)
+├── Domain/              # Enterprise Business Rules (no dependencies)
 ├── DTOs/                # Shared DTOs for all API versions and adapters
-├── Application/         # Use cases, operations (feature-based)
-└── Adapters/            # Interface implementations
+├── Application/         # Application Business Rules (feature-based)
+└── Infrastructure/      # Interface Adapters
     ├── Api/             # HTTP layer, controllers, middleware
     ├── Cache/           # L1/L2 cache implementations
     └── Persistence/     # Database, external services
@@ -30,14 +30,92 @@ docs/                    # Documentation
 
 ---
 
-## Layer Details
+## Why Multiple Projects? (Compile-Time Enforcement)
 
-### Entities Layer (`src/Entities/`)
+We use **separate `.csproj` files** for each layer to get **compile-time dependency enforcement**.
 
-Pure business entities with no external dependencies.
+### The Problem with Single-Project
+
+In a single-project structure, nothing stops a developer from doing this:
+
+```csharp
+// File: Application/Users/CreateUserHandler.cs
+
+using MongoDB.Driver;  // ← Nothing prevents this!
+
+public class CreateUserHandler
+{
+    private readonly IMongoCollection<User> _collection;  // ← Direct MongoDB usage in Application layer
+}
+```
+
+This **builds successfully** but violates Clean Architecture — Application layer should not know about MongoDB.
+
+### How Multiple Projects Enforce Boundaries
 
 ```
-Entities/
+Domain.csproj
+  └── References: NOTHING
+
+Application.csproj
+  └── References: Domain.csproj only
+  └── Packages: MediatR, FluentValidation (no infrastructure)
+
+Infrastructure.csproj
+  └── References: Application.csproj, Domain.csproj
+  └── Packages: MongoDB.Driver, StackExchange.Redis
+```
+
+Now if a developer tries the same thing:
+
+```csharp
+// File: src/Application/Users/CreateUserHandler.cs
+
+using MongoDB.Driver;  // ← Attempt to use MongoDB
+```
+
+**Result:**
+```
+❌ Build Error CS0246: The type or namespace 'MongoDB' could not be found
+```
+
+The **compiler physically prevents** the violation. No code review needed.
+
+### What Each Project Can Access
+
+| Project | Can Reference | Cannot Reference |
+|---------|---------------|------------------|
+| **Domain** | .NET base classes only | Application ❌, Infrastructure ❌, MongoDB ❌ |
+| **Application** | Domain ✅ | Infrastructure ❌, MongoDB ❌, Redis ❌ |
+| **Infrastructure** | Domain ✅, Application ✅, MongoDB ✅, Redis ✅ | — |
+
+### Multi-Project vs Single-Project
+
+| Aspect | Multi-Project | Single-Project |
+|--------|---------------|----------------|
+| **Boundary enforcement** | ✅ Compile-time (automatic) | ❌ Discipline only (manual) |
+| **Accidental violations** | Impossible | Easy to make |
+| **Code reviews** | Less critical for boundaries | Must catch violations |
+| **Junior developer mistakes** | Compiler catches them | Slip through to production |
+| **Setup complexity** | More `.csproj` files | Simpler |
+
+### The Trade-off
+
+**Multi-project = Compiler is your police.**
+**Single-project = You are your own police.**
+
+For long-term, team-based projects, we choose compiler enforcement.
+
+---
+
+## Layer Details
+
+### Domain Layer (`src/Domain/`)
+
+Pure business entities with no external dependencies (Enterprise Business Rules).
+
+```
+Domain/
 ├── BaseEntity.cs           # Common fields (Id, CreatedAt, etc.)
 ├── PrescriptionOrder.cs    # Prescription Order aggregate
 ├── User.cs                 # User entity (includes API key authentication)
@@ -55,14 +133,10 @@ DTOs/
 │   └── UserDto.cs          # CreateUserRequest, CreateUserResponse
 │
 ├── V1/                     # API Version 1 DTOs
-│   ├── OrderDto.cs         # V1 Order response
-│   ├── CreateOrderRequest.cs
-│   └── UpdateOrderRequest.cs
+│   └── OrderDto.cs         # OrderDto, CreateOrderRequest, UpdateOrderRequest
 │
 └── V2/                     # API Version 2 DTOs
-    ├── PrescriptionOrderDto.cs  # V2 Order response
-    ├── CreatePrescriptionOrderRequest.cs
-    └── UpdatePrescriptionOrderRequest.cs
+    └── PrescriptionOrderDto.cs  # PrescriptionOrderDto, CreatePrescriptionOrderRequest, UpdatePrescriptionOrderRequest
 ```
 
 **Key Benefits:**
@@ -82,26 +156,29 @@ Application/
 │   │   ├── CreateOrder.cs      # Request + Handler in one file
 │   │   ├── CreateOrderValidator.cs
 │   │   ├── UpdateOrderStatus.cs
+│   │   ├── UpdateOrderStatusValidator.cs
 │   │   ├── CancelOrder.cs
 │   │   ├── DeleteOrder.cs
 │   │   ├── GetOrderById.cs
 │   │   ├── GetAllOrders.cs
+│   │   ├── GetOrdersByStatus.cs
 │   │   └── GetOrdersByUser.cs
 │   └── Shared/
 │       ├── InternalOrderDto.cs    # Internal representation (Status: OrderStatus enum)
 │       └── EntityToInternalDto.cs # Entity → Internal DTO mapper
 │
-├── Users/                      # Feature: User Management
-│   └── Operations/
-│
 ├── Prescriptions/              # Feature: Prescription Management
 │   ├── Operations/
+│   │   ├── CreatePrescription.cs
+│   │   ├── CreatePrescriptionValidator.cs
+│   │   └── GetPrescriptionById.cs
 │   └── Shared/
 │       ├── InternalPrescriptionDto.cs  # Internal representation
 │       └── EntityToInternalDto.cs      # Entity → Internal DTO mapper
 │
-├── ApiKeys/                    # Feature: API Key Management (Admin)
+├── Users/                      # Feature: User Management (Admin)
 │   └── Operations/
+│       └── CreateApiKeyUser.cs
 │
 ├── Behaviors/                  # MediatR Pipeline Behaviors
 │   ├── LoggingBehavior.cs
@@ -109,6 +186,7 @@ Application/
 │   └── CachingBehavior.cs
 │
 ├── Interfaces/                 # Abstractions for Infrastructure
+│   ├── ICacheableQuery.cs      # Marker interface for cacheable queries
 │   ├── Repositories/
 │   │   ├── IRepository.cs
 │   │   ├── IUnitOfWork.cs
@@ -131,21 +209,24 @@ Application/
 - ✅ **External DTOs separate** - Versioned DTOs in `src/DTOs` project
 - ✅ **Cross-version DTOs** - Shared DTOs in `src/DTOs/Shared/` for common types
 
-### Adapters Layer (`src/Adapters/`)
+### Infrastructure Layer (`src/Infrastructure/`)
 
-The Adapters layer combines **Api** (driving adapters) and **Persistence** (driven adapters):
+The Infrastructure layer (Interface Adapters) combines **Api** (driving adapters) and **Persistence** (driven adapters):
 
 ```
-Adapters/
+Infrastructure/
 ├── Api/                        # HTTP/Web adapters (driving)
 │   ├── Controllers/
+│   │   ├── PrescriptionsController.cs  # Shared (not versioned)
 │   │   ├── V1/                 # API Version 1
 │   │   │   ├── OrdersController.cs
-│   │   │   ├── AdminController.cs
+│   │   │   ├── UsersController.cs
 │   │   │   └── Mappers/
+│   │   │       └── OrderMapper.cs
 │   │   └── V2/                 # API Version 2
 │   │       ├── OrdersController.cs
 │   │       └── Mappers/
+│   │           └── PrescriptionOrderMapper.cs
 │   │
 │   ├── Authentication/
 │   │   └── ApiKeyAuthenticationHandler.cs
@@ -160,6 +241,7 @@ Adapters/
 │   │
 │   ├── Services/
 │   │   ├── CurrentUserService.cs
+│   │   ├── RootAdminHealthCheck.cs
 │   │   └── RootAdminInitializer.cs
 │   │
 │   ├── Program.cs              # Application entry point
@@ -211,9 +293,9 @@ config/                         # Configuration files (separate from code)
 
 | Layer | Organization | Reason |
 |-------|--------------|--------|
-| **Entities** | Entity-based | Core business objects, no dependencies |
-| **Application** | Feature-based | Each use case is self-contained. Easy to find all related code. |
-| **Adapters** | Layer-based | Technical concerns (DB, Cache, HTTP) are shared across features. |
+| **Domain** | Entity-based | Core business objects, no dependencies (Enterprise Business Rules) |
+| **Application** | Feature-based | Each use case is self-contained. Easy to find all related code. (Application Business Rules) |
+| **Infrastructure** | Layer-based | Technical concerns (DB, Cache, HTTP) are shared across features. (Interface Adapters) |
 
 ---
 
@@ -223,9 +305,9 @@ config/                         # Configuration files (separate from code)
 |--------------|----------|
 | Add a new order operation | `Application/Orders/Operations/` |
 | Add validation for an operation | `Application/Orders/Operations/XxxValidator.cs` |
-| Change database implementation | `Adapters/Persistence/Repositories/` |
-| Add caching logic | `Adapters/Cache/` |
+| Change database implementation | `Infrastructure/Persistence/Repositories/` |
+| Add caching logic | `Infrastructure/Cache/` |
 | Add API versioned DTO | `src/DTOs/V1/` or `src/DTOs/V2/` |
-| Add middleware | `Adapters/Api/Middleware/` |
+| Add middleware | `Infrastructure/Api/Middleware/` |
 | Configure environment | `config/appsettings.{env}.json` |
 
