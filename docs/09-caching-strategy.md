@@ -150,6 +150,53 @@ public record UpdatePatientCommand(int Id, string Name)
 | Production | ✅ | ✅ | Strong | 30s |
 | E2E Tests | ❌ | ✅ | - | - |
 
+## Failure Handling
+
+The cache is designed to be **resilient** - it should never break your application.
+
+### Startup Behavior (Fail-Fast)
+
+When L2 (Redis) is enabled, the application **requires Redis to be available at startup**:
+
+- `AbortOnConnectFail = true` ensures the app fails to start if Redis is unreachable
+- This prevents deploying with misconfigured Redis
+- Health checks in orchestrators (Kubernetes, etc.) will detect the failure
+
+```csharp
+// Redis must be healthy at startup - fail fast
+configurationOptions.AbortOnConnectFail = true;
+```
+
+### Runtime Behavior (Graceful Degradation)
+
+If Redis becomes unavailable **after startup**, the application continues to work:
+
+| Operation | Behavior on Redis Failure |
+|-----------|---------------------------|
+| Cache Get | Returns cache miss, falls through to MongoDB |
+| Cache Set | Logs error, continues (data still saved to MongoDB) |
+| Cache Delete | Logs error, continues |
+| Pub/Sub Invalidation | Logs error, continues |
+
+This means:
+- **No 500 errors** due to cache failures
+- Application continues serving requests (just slower)
+- All operations are logged at `Error` level for monitoring
+- Redis auto-reconnects when available again (`ExponentialRetry` policy)
+
+### Why This Design?
+
+1. **Cache is an optimization, not critical path** - Data is always in MongoDB
+2. **High availability** - Cache failures shouldn't cause outages
+3. **Self-healing** - Auto-reconnection when Redis recovers
+4. **Observable** - All failures are logged for alerting
+
+### Monitoring Recommendations
+
+- Alert on `Error` level logs containing "Failed to" and "cache"
+- Monitor cache hit ratio - sudden drops indicate Redis issues
+- Use the `/health` endpoint to detect degraded cache state
+
 ## Health Checks
 
 When L2 (Redis) is enabled, a health check endpoint monitors Redis connectivity:
