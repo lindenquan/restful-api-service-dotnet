@@ -6,6 +6,7 @@ using Infrastructure.Api.Services;
 using Infrastructure.Cache;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Configuration;
+using Infrastructure.Resilience;
 using Application;
 using Asp.Versioning;
 using DotNetEnv;
@@ -173,6 +174,9 @@ builder.Services.AddPersistence(mongoDbSettings);
 
 // Register Cache layer services (L1 memory / L2 Redis)
 builder.Services.AddCache(cacheSettings);
+
+// Register Resilience pipelines (retry, circuit breaker, timeout)
+builder.Services.AddResilience(builder.Configuration);
 
 // Configure Root Admin settings and auto-creation
 builder.Services.Configure<RootAdminSettings>(

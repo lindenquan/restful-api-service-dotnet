@@ -1,4 +1,5 @@
 using Infrastructure.Persistence.Security;
+using Infrastructure.Resilience;
 using Application.Interfaces.Repositories;
 using Domain;
 using MongoDB.Driver;
@@ -12,8 +13,8 @@ namespace Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class MongoUserRepository : MongoRepository<User>, IUserRepository
 {
-    public MongoUserRepository(IMongoCollection<User> collection)
-        : base(collection)
+    public MongoUserRepository(IMongoCollection<User> collection, IResilientExecutor resilientExecutor)
+        : base(collection, resilientExecutor)
     {
     }
 

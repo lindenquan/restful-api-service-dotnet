@@ -1,5 +1,6 @@
 using Application.Interfaces.Repositories;
 using Domain;
+using Infrastructure.Resilience;
 using MongoDB.Driver;
 
 namespace Infrastructure.Persistence.Repositories;
@@ -16,8 +17,9 @@ public sealed class MongoPatientRepository : MongoRepository<Patient>, IPatientR
     public MongoPatientRepository(
         IMongoCollection<Patient> collection,
         IMongoCollection<Prescription> prescriptionsCollection,
-        IMongoCollection<PrescriptionOrder> ordersCollection)
-        : base(collection)
+        IMongoCollection<PrescriptionOrder> ordersCollection,
+        IResilientExecutor resilientExecutor)
+        : base(collection, resilientExecutor)
     {
         _prescriptionsCollection = prescriptionsCollection;
         _ordersCollection = ordersCollection;

@@ -19,6 +19,7 @@
     <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Resilience" Version="10.1.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
 
     <!-- Persistence packages -->

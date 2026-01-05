@@ -1,4 +1,5 @@
 using Infrastructure.Persistence.Configuration;
+using Infrastructure.Resilience;
 using Application.Interfaces.Repositories;
 using Domain;
 using MongoDB.Driver;
@@ -18,6 +19,7 @@ public sealed class MongoUnitOfWork : IUnitOfWork
     private readonly IMongoCollection<Prescription> _prescriptionsCollection;
     private readonly IMongoCollection<PrescriptionOrder> _ordersCollection;
     private readonly IMongoCollection<User> _usersCollection;
+    private readonly IResilientExecutor _resilientExecutor;
 
     private IPatientRepository? _patients;
     private IPrescriptionRepository? _prescriptions;
@@ -26,9 +28,10 @@ public sealed class MongoUnitOfWork : IUnitOfWork
 
     private IClientSessionHandle? _session;
 
-    public MongoUnitOfWork(IMongoClient client, MongoDbSettings settings)
+    public MongoUnitOfWork(IMongoClient client, MongoDbSettings settings, IResilientExecutor resilientExecutor)
     {
         _database = client.GetDatabase(settings.DatabaseName);
+        _resilientExecutor = resilientExecutor;
 
         _patientsCollection = _database.GetCollection<Patient>(settings.PatientsCollection);
         _prescriptionsCollection = _database.GetCollection<Prescription>(settings.PrescriptionsCollection);
@@ -37,17 +40,17 @@ public sealed class MongoUnitOfWork : IUnitOfWork
     }
 
     public IPatientRepository Patients =>
-        _patients ??= new MongoPatientRepository(_patientsCollection, _prescriptionsCollection, _ordersCollection);
+        _patients ??= new MongoPatientRepository(_patientsCollection, _prescriptionsCollection, _ordersCollection, _resilientExecutor);
 
     public IPrescriptionRepository Prescriptions =>
-        _prescriptions ??= new MongoPrescriptionRepository(_prescriptionsCollection, _patientsCollection);
+        _prescriptions ??= new MongoPrescriptionRepository(_prescriptionsCollection, _patientsCollection, _resilientExecutor);
 
     public IPrescriptionOrderRepository PrescriptionOrders =>
         _prescriptionOrders ??= new MongoPrescriptionOrderRepository(
-            _ordersCollection, _patientsCollection, _prescriptionsCollection);
+            _ordersCollection, _patientsCollection, _prescriptionsCollection, _resilientExecutor);
 
     public IUserRepository Users =>
-        _users ??= new MongoUserRepository(_usersCollection);
+        _users ??= new MongoUserRepository(_usersCollection, _resilientExecutor);
 
     /// <summary>
     /// MongoDB operations are auto-committed. This is a no-op unless in a transaction.
