@@ -573,14 +573,14 @@ Infrastructure.csproj  (was "DataAccess")
 │                                  └─────────┘                            │
 │                                                                         │
 │  Who owns                        DAL owns                 APP owns      │
-│  interface?     (none)           interface ❌             interface ✅  │
+│  interface?     (none)           interface ❌             interface ✅ │
 │                                                                         │
-│  Dependency     BLL → DAL        BLL → DAL               Infra → App   │
-│  direction:     (down)           (still down) ❌          (inward) ✅   │
+│  Dependency     BLL → DAL        BLL → DAL               Infra → App    │
+│  direction:     (down)           (still down) ❌          (inward) ✅  │
 │                                                                         │
-│  Can swap DB?   No ❌            Partially 🟡             Yes ✅        │
+│  Can swap DB?   No             Partially 🟡               Yes ✅       │
 │                                                                         │
-│  Can test       No ❌            Yes (with mocks) 🟡      Yes (pure) ✅ │
+│  Can test       No             Yes (with mocks) 🟡        Yes (pure)✅ │
 │  without DB?                                                            │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -730,4 +730,78 @@ If the team doesn't understand the principles, they'll fight the architecture an
 
 > *"The center of your application is not the database. It's the use cases of the application."*
 > — Robert C. Martin (Uncle Bob)
+
+---
+
+## Appendix: DIP Cheat Sheet
+
+### DIP in One Sentence
+
+> **"Consumers define interfaces, instead of implementers defining interfaces."**
+
+### DIP Has TWO Parts (Both Required!)
+
+| Part | Rule | Common Mistake |
+|------|------|----------------|
+| **Part 1** | Depend on abstractions (interfaces), not concrete classes | ✅ Most devs get this |
+| **Part 2** | Abstractions must be OWNED by the **consumer**, not the implementer | ❌ Most devs miss this! |
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Part 1 alone is NOT enough!                                            │
+│                                                                         │
+│  You can use interfaces everywhere and STILL violate DIP                │
+│  if the interface lives in the wrong layer (owned by implementer).      │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Quick Verification: Check Your .csproj Files
+
+```xml
+<!-- ❌ WRONG: Application depends on Adapters (high-level depends on low-level) -->
+<!-- Application.csproj -->
+<ProjectReference Include="..\Adapters\Infrastructure.csproj" />  <!-- NEVER do this! -->
+
+<!-- ✅ CORRECT: Adapters depends on Application (low-level depends on high-level) -->
+<!-- Infrastructure.csproj -->
+<ProjectReference Include="..\Application\Application.csproj" />  <!-- This is DIP! -->
+```
+
+**Our project does it correctly:**
+```
+Application.csproj
+  └── References: Entities.csproj only ✅ (no infrastructure dependencies)
+
+Infrastructure.csproj
+  └── References: Application.csproj ✅ (implements interfaces from Application)
+  └── References: Entities.csproj
+  └── References: DTOs.csproj
+```
+
+### One-Liner Explanations
+
+| Concept | One-Liner |
+|---------|-----------|
+| **DIP** | "The consumer defines what it NEEDS, the implementer adapts to it" |
+| **Inversion** | "Move interface ownership from implementer to consumer, so the dependency arrow flips" |
+| **Clean Architecture** | "Dependencies point inward toward business rules" |
+| **Why it matters** | "Business logic has zero knowledge of databases, frameworks, or external services" |
+
+### Common Questions
+
+**Q: "Isn't using interfaces enough for DIP?"**
+> No! The interface must be OWNED by the **consumer** (who uses it), not the **implementer** (who provides it). If `IRepository` lives in the Data layer (implementer), Business still depends on Data.
+
+**Q: "What does 'inversion' mean?"**
+> In traditional N-Layer, the implementer (Data layer) defines the interface. With DIP, the consumer (Application) defines the interface. Now the implementer must depend on the consumer to implement it. The dependency arrow inverts.
+
+**Q: "How do I verify DIP in code?"**
+> Check project references. The consumer should NOT reference the implementer. In our project: `Application.csproj` has no reference to `Infrastructure.csproj` ✅
+
+### Remember
+
+1. **Adding interfaces ≠ DIP** (interface location matters!)
+2. **Check project references** to verify DIP
+3. **"Inversion" = interface moves up, dependency arrow flips**
+4. **Business defines contracts, Infrastructure implements them**
 
