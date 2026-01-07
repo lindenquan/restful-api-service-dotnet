@@ -14,7 +14,7 @@ public interface IPrescriptionRepository : IRepository<Prescription>
     Task<Prescription?> GetByIdWithPatientAsync(Guid id, CancellationToken ct = default);
     Task<IEnumerable<Prescription>> GetAllWithPatientsAsync(CancellationToken ct = default);
 
-    // Pagination methods with Patient navigation
+    // Pagination methods with Patient navigation and OData filtering/sorting
     Task<PagedData<Prescription>> GetPagedWithPatientsAsync(
         int skip,
         int top,

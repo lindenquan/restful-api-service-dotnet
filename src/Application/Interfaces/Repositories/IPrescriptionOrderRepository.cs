@@ -17,7 +17,7 @@ public interface IPrescriptionOrderRepository : IRepository<PrescriptionOrder>
     Task<IEnumerable<PrescriptionOrder>> GetByPatientIdWithDetailsAsync(Guid patientId, CancellationToken ct = default);
     Task<IEnumerable<PrescriptionOrder>> GetByStatusWithDetailsAsync(OrderStatus status, CancellationToken ct = default);
 
-    // Pagination methods with details (includes Patient and Prescription navigation)
+    // Pagination methods with details (includes Patient and Prescription navigation) and OData filtering/sorting
     Task<PagedData<PrescriptionOrder>> GetPagedWithDetailsAsync(
         int skip,
         int top,

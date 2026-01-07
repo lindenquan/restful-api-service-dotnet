@@ -6,7 +6,7 @@ using MediatR;
 namespace Application.Patients.Operations;
 
 /// <summary>
-/// Query to get patients with OData-style pagination.
+/// Query to get patients with OData filtering, sorting, and pagination.
 /// </summary>
 public sealed record GetPatientsPagedQuery(
     int Skip,

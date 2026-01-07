@@ -20,10 +20,10 @@ public sealed class PaginationSettings
     public int MaxPageSize { get; set; } = 100;
 
     /// <summary>
-    /// Whether to include @odata.count by default. Default: false.
-    /// Can be overridden per-request with $count=true query parameter.
+    /// Whether to include @odata.count by default when $count is not specified. Default: true.
+    /// Can be overridden per-request with $count=true or $count=false query parameter.
     /// Note: Counting can be expensive on large collections.
     /// </summary>
-    public bool DefaultIncludeCount { get; set; } = false;
+    public bool IncludeCountByDefault { get; set; } = true;
 }
 

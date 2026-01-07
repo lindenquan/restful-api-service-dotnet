@@ -52,23 +52,24 @@ public class PrescriptionsController : ControllerBase
     [HttpGet]
     [Authorize(Policy = PolicyNames.CanRead)]
     public async Task<ActionResult<PagedResult<Prescription>>> GetAll(
-        [FromQuery] ODataQueryParams query,
+        [FromQuery] ODataQueryOptions query,
         CancellationToken ct)
     {
-        var orderByParsed = query.ParseOrderBy();
+        var primarySort = query.GetPrimarySortField();
         var pagedData = await _mediator.Send(new GetPrescriptionsPagedQuery(
             query.EffectiveSkip,
             query.GetEffectiveTop(_paginationSettings),
             query.GetEffectiveCount(_paginationSettings),
-            orderByParsed?.Property,
-            orderByParsed?.Descending ?? false), ct);
+            primarySort?.Field,
+            primarySort?.Descending ?? false), ct);
 
         var result = PaginationHelper.BuildPagedResult(
             pagedData,
             p => p,  // V1 returns domain entity directly
             Request,
             query,
-            _paginationSettings);
+            _paginationSettings,
+            "Prescriptions");
 
         return Ok(result);
     }

@@ -6,7 +6,7 @@ using MediatR;
 namespace Application.Orders.Operations;
 
 /// <summary>
-/// Query to get prescription orders with OData-style pagination.
+/// Query to get prescription orders with OData filtering, sorting, and pagination.
 /// </summary>
 public sealed record GetOrdersPagedQuery(
     int Skip,
@@ -40,7 +40,7 @@ public sealed class GetOrdersPagedHandler : IRequestHandler<GetOrdersPagedQuery,
 }
 
 /// <summary>
-/// Query to get prescription orders by patient with pagination.
+/// Query to get prescription orders by patient with OData filtering, sorting, and pagination.
 /// </summary>
 public sealed record GetOrdersByPatientPagedQuery(
     Guid PatientId,

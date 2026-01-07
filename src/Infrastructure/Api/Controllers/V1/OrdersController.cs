@@ -45,23 +45,24 @@ public class OrdersController : ControllerBase
     [HttpGet]
     [Authorize(Policy = PolicyNames.CanRead)]
     public async Task<ActionResult<PagedResult<OrderDto>>> GetAll(
-        [FromQuery] ODataQueryParams query,
+        [FromQuery] ODataQueryOptions query,
         CancellationToken ct)
     {
-        var orderByParsed = query.ParseOrderBy();
+        var primarySort = query.GetPrimarySortField();
         var pagedData = await _mediator.Send(new GetOrdersPagedQuery(
             query.EffectiveSkip,
             query.GetEffectiveTop(_paginationSettings),
             query.GetEffectiveCount(_paginationSettings),
-            orderByParsed?.Property,
-            orderByParsed?.Descending ?? false), ct);
+            primarySort?.Field,
+            primarySort?.Descending ?? false), ct);
 
         var result = PaginationHelper.BuildPagedResult(
             pagedData,
             OrderMapper.ToV1Dto,
             Request,
             query,
-            _paginationSettings);
+            _paginationSettings,
+            "Orders");
 
         return Ok(result);
     }
@@ -87,24 +88,25 @@ public class OrdersController : ControllerBase
     [Authorize(Policy = PolicyNames.CanRead)]
     public async Task<ActionResult<PagedResult<OrderDto>>> GetByPatient(
         Guid patientId,
-        [FromQuery] ODataQueryParams query,
+        [FromQuery] ODataQueryOptions query,
         CancellationToken ct)
     {
-        var orderByParsed = query.ParseOrderBy();
+        var primarySort = query.GetPrimarySortField();
         var pagedData = await _mediator.Send(new GetOrdersByPatientPagedQuery(
             patientId,
             query.EffectiveSkip,
             query.GetEffectiveTop(_paginationSettings),
             query.GetEffectiveCount(_paginationSettings),
-            orderByParsed?.Property,
-            orderByParsed?.Descending ?? false), ct);
+            primarySort?.Field,
+            primarySort?.Descending ?? false), ct);
 
         var result = PaginationHelper.BuildPagedResult(
             pagedData,
             OrderMapper.ToV1Dto,
             Request,
             query,
-            _paginationSettings);
+            _paginationSettings,
+            "Orders");
 
         return Ok(result);
     }

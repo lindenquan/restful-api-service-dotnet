@@ -11,7 +11,9 @@ using Infrastructure.Cache;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Configuration;
 using Infrastructure.Resilience;
+using Microsoft.AspNetCore.OData;
 using Microsoft.OpenApi;
+
 
 // Load .env file from solution root (must be done before WebApplication.CreateBuilder)
 // This allows setting ASPNETCORE_ENVIRONMENT and other variables in .env file
@@ -85,7 +87,19 @@ builder.Services.AddControllers()
         // Serialize enums as strings (not numbers) for better API readability
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-    });
+    })
+    .AddOData(options => options
+        // Enable OData query parsing (but we don't use [EnableQuery])
+        .Select()
+        .Filter()
+        .OrderBy()
+        .Expand()
+        .Count()
+        .SetMaxTop(100)
+        // Add route components for metadata and service document
+        .AddRouteComponents("odata", ODataConfiguration.GetCombinedEdmModel())
+        .AddRouteComponents("odata/v1", ODataConfiguration.GetEdmModelV1())
+        .AddRouteComponents("odata/v2", ODataConfiguration.GetEdmModelV2()));
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(options =>
 {

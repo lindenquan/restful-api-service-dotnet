@@ -87,12 +87,12 @@ public sealed class MongoPrescriptionRepository : MongoRepository<Prescription, 
         bool descending = false,
         CancellationToken ct = default)
     {
-        var filter = Builders<PrescriptionDataModel>.Filter.Eq(p => p.Metadata.IsDeleted, false);
+        var filter = Builders<PrescriptionDataModel>.Filter.Eq(e => e.Metadata.IsDeleted, false);
 
         var query = _collection.Find(filter);
-        query = ApplyPrescriptionOrdering(query, orderBy, descending);
+        query = ApplyOrderingForPrescriptions(query, orderBy, descending);
 
-        var models = await query
+        var prescriptionModels = await query
             .Skip(skip)
             .Limit(top)
             .ToListAsync(ct);
@@ -103,7 +103,7 @@ public sealed class MongoPrescriptionRepository : MongoRepository<Prescription, 
             totalCount = await _collection.CountDocumentsAsync(filter, cancellationToken: ct);
         }
 
-        var prescriptions = models.Select(ToDomain).ToList();
+        var prescriptions = prescriptionModels.Select(ToDomain).ToList();
         await LoadPatientsAsync(prescriptions, ct);
 
         return new PagedData<Prescription>(prescriptions, totalCount);
@@ -134,39 +134,44 @@ public sealed class MongoPrescriptionRepository : MongoRepository<Prescription, 
     }
 
     /// <summary>
-    /// Apply ordering specific to prescriptions.
+    /// Apply ordering specific to Prescription fields.
     /// </summary>
-    private static IFindFluent<PrescriptionDataModel, PrescriptionDataModel> ApplyPrescriptionOrdering(
+    private static IFindFluent<PrescriptionDataModel, PrescriptionDataModel> ApplyOrderingForPrescriptions(
         IFindFluent<PrescriptionDataModel, PrescriptionDataModel> query,
         string? orderBy,
         bool descending)
     {
-        // Default ordering by CreatedAt descending (newest first)
         if (string.IsNullOrEmpty(orderBy))
         {
-            return query.SortByDescending(p => p.Metadata.CreatedAt);
+            return query.SortByDescending(e => e.PrescribedDate);
         }
 
         var normalizedOrderBy = orderBy.ToLowerInvariant();
 
         return normalizedOrderBy switch
         {
-            "expirydate" => descending
-                ? query.SortByDescending(p => p.ExpiryDate)
-                : query.SortBy(p => p.ExpiryDate),
             "prescribeddate" => descending
-                ? query.SortByDescending(p => p.PrescribedDate)
-                : query.SortBy(p => p.PrescribedDate),
+                ? query.SortByDescending(e => e.PrescribedDate)
+                : query.SortBy(e => e.PrescribedDate),
+            "expirydate" => descending
+                ? query.SortByDescending(e => e.ExpiryDate)
+                : query.SortBy(e => e.ExpiryDate),
             "medicationname" => descending
-                ? query.SortByDescending(p => p.MedicationName)
-                : query.SortBy(p => p.MedicationName),
+                ? query.SortByDescending(e => e.MedicationName)
+                : query.SortBy(e => e.MedicationName),
+            "prescribername" => descending
+                ? query.SortByDescending(e => e.PrescriberName)
+                : query.SortBy(e => e.PrescriberName),
+            "quantity" => descending
+                ? query.SortByDescending(e => e.Quantity)
+                : query.SortBy(e => e.Quantity),
+            "refillsremaining" => descending
+                ? query.SortByDescending(e => e.RefillsRemaining)
+                : query.SortBy(e => e.RefillsRemaining),
             "createdat" => descending
-                ? query.SortByDescending(p => p.Metadata.CreatedAt)
-                : query.SortBy(p => p.Metadata.CreatedAt),
-            "id" => descending
-                ? query.SortByDescending(p => p.Id)
-                : query.SortBy(p => p.Id),
-            _ => query.SortByDescending(p => p.Metadata.CreatedAt) // Fallback to default
+                ? query.SortByDescending(e => e.Metadata.CreatedAt)
+                : query.SortBy(e => e.Metadata.CreatedAt),
+            _ => query.SortByDescending(e => e.PrescribedDate)
         };
     }
 }

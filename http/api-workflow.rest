@@ -284,3 +284,118 @@ X-API-Key: {{apiKey}}
   "notes": "This should fail - prescription doesn't exist"
 }
 
+### ==========================================================================
+### SECTION 5: ODATA QUERIES
+### ==========================================================================
+### OData query parameters for pagination, sorting, and counting.
+### Supported: $top, $skip, $count, $orderby
+### NOT Supported: $filter, $expand, $select (by design for security)
+
+### --------------------------------------------------------------------------
+### 5.1 OData Metadata Endpoint
+### --------------------------------------------------------------------------
+### Returns the OData EDM (Entity Data Model) metadata.
+### Tools like Power BI and Excel use this for schema discovery.
+### Expected: 200 OK with XML metadata
+
+GET {{baseUrl}}/odata/$metadata
+Content-Type: application/xml
+
+### --------------------------------------------------------------------------
+### 5.2 OData Service Document
+### --------------------------------------------------------------------------
+### Returns the OData service document listing available entity sets.
+### Expected: 200 OK with JSON service document
+
+GET {{baseUrl}}/odata/
+Content-Type: application/json
+
+### --------------------------------------------------------------------------
+### 5.3 Orders - Pagination with $top and $skip
+### --------------------------------------------------------------------------
+### Get first page (20 items)
+### Expected: 200 OK with PagedResult containing @odata.count and @odata.nextLink
+
+GET {{baseUrl}}/api/v2/orders?$top=20&$skip=0&$count=true
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.4 Orders - Second Page
+### --------------------------------------------------------------------------
+### Skip first 20 items, get next 20
+
+GET {{baseUrl}}/api/v2/orders?$top=20&$skip=20&$count=true
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.5 Orders - Sorting Descending
+### --------------------------------------------------------------------------
+### Sort by orderDate descending (newest first)
+
+GET {{baseUrl}}/api/v2/orders?$top=10&$orderby=orderDate desc&$count=true
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.6 Orders - Sorting Ascending
+### --------------------------------------------------------------------------
+### Sort by status ascending
+
+GET {{baseUrl}}/api/v2/orders?$top=10&$orderby=status asc&$count=true
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.7 Orders - Combined Query (Pagination + Sorting + Count)
+### --------------------------------------------------------------------------
+### Full OData query with all parameters
+
+GET {{baseUrl}}/api/v2/orders?$top=50&$skip=100&$count=true&$orderby=orderDate desc
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.8 Orders - Without Count (Performance Optimization)
+### --------------------------------------------------------------------------
+### Disable count for faster queries on large datasets
+
+GET {{baseUrl}}/api/v2/orders?$top=20&$count=false
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.9 Patients - OData Pagination
+### --------------------------------------------------------------------------
+### Get patients with pagination
+
+GET {{baseUrl}}/api/v2/patients?$top=10&$skip=0&$count=true
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.10 Patients - Sorting by Name
+### --------------------------------------------------------------------------
+### Sort patients by lastName (or createdAt)
+
+GET {{baseUrl}}/api/v2/patients?$top=10&$orderby=createdAt desc&$count=true
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.11 Prescriptions - OData Pagination
+### --------------------------------------------------------------------------
+### Get prescriptions with pagination
+
+GET {{baseUrl}}/api/v2/prescriptions?$top=10&$skip=0&$count=true
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.12 Prescriptions - Sorting by Date
+### --------------------------------------------------------------------------
+### Sort prescriptions by prescribedDate descending
+
+GET {{baseUrl}}/api/v2/prescriptions?$top=10&$orderby=prescribedDate desc&$count=true
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 5.13 V1 API - OData Pagination (Backwards Compatibility)
+### --------------------------------------------------------------------------
+### V1 API also supports OData parameters
+
+GET {{baseUrl}}/api/v1/orders?$top=10&$skip=0&$count=true
+X-API-Key: {{apiKey}}
+

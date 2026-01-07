@@ -11,6 +11,15 @@ namespace DTOs.Shared;
 public sealed class PagedResult<T>
 {
     /// <summary>
+    /// Context URL that describes the collection.
+    /// Links to the metadata document.
+    /// OData property: @odata.context
+    /// </summary>
+    [JsonPropertyName("@odata.context")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ODataContext { get; init; }
+
+    /// <summary>
     /// Total count of items (before pagination).
     /// Only included when $count=true is requested.
     /// OData property: @odata.count
@@ -40,12 +49,14 @@ public sealed class PagedResult<T>
     /// </summary>
     public static PagedResult<T> Create(
         IReadOnlyList<T> items,
+        string? context = null,
         long? totalCount = null,
         string? nextLink = null)
     {
         return new PagedResult<T>
         {
             Value = items,
+            ODataContext = context,
             ODataCount = totalCount,
             ODataNextLink = nextLink
         };

@@ -198,12 +198,12 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
         bool descending = false,
         CancellationToken ct = default)
     {
-        var filter = Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Metadata.IsDeleted, false);
+        var filter = Builders<PrescriptionOrderDataModel>.Filter.Eq(e => e.Metadata.IsDeleted, false);
 
         var query = _collection.Find(filter);
-        query = ApplyOrderOrdering(query, orderBy, descending);
+        query = ApplyOrderingForOrders(query, orderBy, descending);
 
-        var models = await query
+        var orderModels = await query
             .Skip(skip)
             .Limit(top)
             .ToListAsync(ct);
@@ -214,7 +214,7 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
             totalCount = await _collection.CountDocumentsAsync(filter, cancellationToken: ct);
         }
 
-        var orders = models.Select(ToDomain).ToList();
+        var orders = orderModels.Select(ToDomain).ToList();
         await LoadDetailsAsync(orders, ct);
 
         return new PagedData<PrescriptionOrder>(orders, totalCount);
@@ -234,9 +234,9 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
             Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Metadata.IsDeleted, false));
 
         var query = _collection.Find(filter);
-        query = ApplyOrderOrdering(query, orderBy, descending);
+        query = ApplyOrderingForOrders(query, orderBy, descending);
 
-        var models = await query
+        var orderModels = await query
             .Skip(skip)
             .Limit(top)
             .ToListAsync(ct);
@@ -247,24 +247,23 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
             totalCount = await _collection.CountDocumentsAsync(filter, cancellationToken: ct);
         }
 
-        var orders = models.Select(ToDomain).ToList();
+        var orders = orderModels.Select(ToDomain).ToList();
         await LoadDetailsAsync(orders, ct);
 
         return new PagedData<PrescriptionOrder>(orders, totalCount);
     }
 
     /// <summary>
-    /// Apply ordering specific to prescription orders.
+    /// Apply ordering specific to PrescriptionOrder fields.
     /// </summary>
-    private static IFindFluent<PrescriptionOrderDataModel, PrescriptionOrderDataModel> ApplyOrderOrdering(
+    private static IFindFluent<PrescriptionOrderDataModel, PrescriptionOrderDataModel> ApplyOrderingForOrders(
         IFindFluent<PrescriptionOrderDataModel, PrescriptionOrderDataModel> query,
         string? orderBy,
         bool descending)
     {
-        // Default ordering by OrderDate descending (newest first)
         if (string.IsNullOrEmpty(orderBy))
         {
-            return query.SortByDescending(o => o.OrderDate);
+            return query.SortByDescending(e => e.OrderDate);
         }
 
         var normalizedOrderBy = orderBy.ToLowerInvariant();
@@ -272,18 +271,21 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
         return normalizedOrderBy switch
         {
             "orderdate" => descending
-                ? query.SortByDescending(o => o.OrderDate)
-                : query.SortBy(o => o.OrderDate),
+                ? query.SortByDescending(e => e.OrderDate)
+                : query.SortBy(e => e.OrderDate),
             "status" => descending
-                ? query.SortByDescending(o => o.Status)
-                : query.SortBy(o => o.Status),
+                ? query.SortByDescending(e => e.Status)
+                : query.SortBy(e => e.Status),
+            "fulfilleddate" => descending
+                ? query.SortByDescending(e => e.FulfilledDate)
+                : query.SortBy(e => e.FulfilledDate),
+            "pickupdate" => descending
+                ? query.SortByDescending(e => e.PickupDate)
+                : query.SortBy(e => e.PickupDate),
             "createdat" => descending
-                ? query.SortByDescending(o => o.Metadata.CreatedAt)
-                : query.SortBy(o => o.Metadata.CreatedAt),
-            "id" => descending
-                ? query.SortByDescending(o => o.Id)
-                : query.SortBy(o => o.Id),
-            _ => query.SortByDescending(o => o.OrderDate) // Fallback to default
+                ? query.SortByDescending(e => e.Metadata.CreatedAt)
+                : query.SortBy(e => e.Metadata.CreatedAt),
+            _ => query.SortByDescending(e => e.OrderDate)
         };
     }
 }

@@ -19,9 +19,13 @@ public enum OrderStatusData
 public class PrescriptionOrderDataModel : BaseDataModel
 {
     public DateTime OrderDate { get; set; } = DateTime.UtcNow;
+
     public OrderStatusData Status { get; set; } = OrderStatusData.Pending;
+
     public string? Notes { get; set; }
+
     public DateTime? FulfilledDate { get; set; }
+
     public DateTime? PickupDate { get; set; }
 
     // Foreign keys

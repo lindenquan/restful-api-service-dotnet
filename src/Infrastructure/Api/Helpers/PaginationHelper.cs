@@ -3,32 +3,39 @@ using DTOs.Shared;
 namespace Infrastructure.Api.Helpers;
 
 /// <summary>
-/// Helper methods for building OData-style paginated responses.
+/// Helper methods for building OData-compliant paginated responses.
+/// Supports: $top, $skip, $count, $orderby
+/// Response format: @odata.context, @odata.count, @odata.nextLink, value
 /// </summary>
 public static class PaginationHelper
 {
     /// <summary>
-    /// Builds a PagedResult from paged data and request context.
+    /// Builds a PagedResult from paged data and OData query options.
     /// </summary>
     /// <typeparam name="TEntity">Domain entity type.</typeparam>
     /// <typeparam name="TDto">DTO type.</typeparam>
     /// <param name="data">Paged data from repository.</param>
     /// <param name="mapper">Function to map entities to DTOs.</param>
-    /// <param name="request">HTTP request for building next link.</param>
+    /// <param name="request">HTTP request for building context and next link.</param>
     /// <param name="query">OData query parameters.</param>
     /// <param name="settings">Pagination settings.</param>
-    /// <returns>PagedResult with OData properties.</returns>
+    /// <param name="entitySetName">Entity set name for @odata.context (e.g., "Orders", "Patients").</param>
+    /// <returns>PagedResult with full OData properties.</returns>
     public static PagedResult<TDto> BuildPagedResult<TEntity, TDto>(
         PagedData<TEntity> data,
         Func<TEntity, TDto> mapper,
         HttpRequest request,
-        ODataQueryParams query,
-        PaginationSettings settings)
+        ODataQueryOptions query,
+        PaginationSettings settings,
+        string entitySetName)
     {
         var dtos = data.Items.Select(mapper).ToList();
         var effectiveTop = query.GetEffectiveTop(settings);
         var effectiveSkip = query.EffectiveSkip;
         var includeCount = query.GetEffectiveCount(settings);
+
+        // Build @odata.context
+        var context = BuildODataContext(request, entitySetName);
 
         // Calculate next link if there are more items
         string? nextLink = null;
@@ -43,47 +50,31 @@ public static class PaginationHelper
         }
 
         return PagedResult<TDto>.Create(
-            dtos,
-            includeCount ? data.TotalCount : null,
-            nextLink);
+            items: dtos,
+            context: context,
+            totalCount: includeCount ? data.TotalCount : null,
+            nextLink: nextLink);
     }
 
     /// <summary>
-    /// Builds a PagedResult directly from DTOs (when mapping is done elsewhere).
+    /// Builds @odata.context URL.
+    /// Format: {scheme}://{host}/odata/$metadata#{entitySetName}
     /// </summary>
-    public static PagedResult<TDto> BuildPagedResult<TDto>(
-        IReadOnlyList<TDto> items,
-        long totalCount,
-        HttpRequest request,
-        ODataQueryParams query,
-        PaginationSettings settings)
+    private static string BuildODataContext(HttpRequest request, string entitySetName)
     {
-        var effectiveTop = query.GetEffectiveTop(settings);
-        var effectiveSkip = query.EffectiveSkip;
-        var includeCount = query.GetEffectiveCount(settings);
-
-        // Calculate next link if there are more items
-        string? nextLink = null;
-        if (includeCount && totalCount > effectiveSkip + items.Count)
-        {
-            nextLink = BuildNextLink(request, effectiveSkip + effectiveTop, effectiveTop, query);
-        }
-        else if (!includeCount && items.Count == effectiveTop)
-        {
-            nextLink = BuildNextLink(request, effectiveSkip + effectiveTop, effectiveTop, query);
-        }
-
-        return PagedResult<TDto>.Create(
-            items,
-            includeCount ? totalCount : null,
-            nextLink);
+        var scheme = request.Scheme;
+        var host = request.Host.ToString();
+        return $"{scheme}://{host}/odata/$metadata#{entitySetName}";
     }
 
+    /// <summary>
+    /// Builds @odata.nextLink URL with OData query parameters.
+    /// </summary>
     private static string BuildNextLink(
         HttpRequest request,
         int nextSkip,
         int top,
-        ODataQueryParams query)
+        ODataQueryOptions query)
     {
         var scheme = request.Scheme;
         var host = request.Host.ToString();

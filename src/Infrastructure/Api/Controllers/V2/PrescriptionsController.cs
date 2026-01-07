@@ -14,7 +14,7 @@ namespace Infrastructure.Api.Controllers.V2;
 /// <summary>
 /// V2 Prescriptions API controller.
 /// V2 includes additional fields like status indicators, days until expiry, and audit timestamps.
-/// Supports OData-style pagination: $top, $skip, $count, $orderby.
+/// Supports OData query parameters: $top, $skip, $count, $orderby.
 /// </summary>
 [ApiController]
 [ApiVersion("2.0")]
@@ -39,23 +39,24 @@ public class PrescriptionsController : ControllerBase
     [HttpGet]
     [Authorize(Policy = PolicyNames.CanRead)]
     public async Task<ActionResult<PagedResult<PrescriptionDto>>> GetAll(
-        [FromQuery] ODataQueryParams query,
+        [FromQuery] ODataQueryOptions query,
         CancellationToken ct)
     {
-        var orderByParsed = query.ParseOrderBy();
+        var primarySort = query.GetPrimarySortField();
         var pagedData = await _mediator.Send(new GetPrescriptionsPagedQuery(
             query.EffectiveSkip,
             query.GetEffectiveTop(_paginationSettings),
             query.GetEffectiveCount(_paginationSettings),
-            orderByParsed?.Property,
-            orderByParsed?.Descending ?? false), ct);
+            primarySort?.Field,
+            primarySort?.Descending ?? false), ct);
 
         var result = PaginationHelper.BuildPagedResult(
             pagedData,
             PrescriptionMapper.ToV2Dto,
             Request,
             query,
-            _paginationSettings);
+            _paginationSettings,
+            "Prescriptions");
 
         return Ok(result);
     }

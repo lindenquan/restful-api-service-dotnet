@@ -12,7 +12,7 @@ using Shouldly;
 namespace Tests.Api.Controllers.V2;
 
 /// <summary>
-/// Unit tests for V2 PatientsController.
+/// Unit tests for V2 PatientsController with OData support.
 /// </summary>
 public class PatientsControllerTests
 {
@@ -40,7 +40,7 @@ public class PatientsControllerTests
     }
 
     [Fact]
-    public async Task GetAll_ShouldReturnOkWithPagedPatients()
+    public async Task GetAll_WithODataQuery_ShouldReturnOkWithPagedPatients()
     {
         // Arrange
         var patients = new List<Patient>
@@ -54,7 +54,7 @@ public class PatientsControllerTests
             .Setup(m => m.Send(It.IsAny<GetPatientsPagedQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedData);
 
-        var query = new ODataQueryParams { Count = true };
+        var query = new ODataQueryOptions { Top = 20, Skip = 0 };
 
         // Act
         var result = await _controller.GetAll(query, CancellationToken.None);
@@ -65,6 +65,44 @@ public class PatientsControllerTests
         pagedResult.Value.ShouldNotBeNull();
         pagedResult.Value.Count.ShouldBe(2);
         pagedResult.Value.First().Age.ShouldBeGreaterThan(0); // V2 includes age
+    }
+
+    [Fact]
+    public async Task GetAll_WithSorting_ShouldPassParametersToHandler()
+    {
+        // Arrange
+        var patients = new List<Patient>
+        {
+            new() { Id = PatientId1, FirstName = "John", LastName = "Doe", Email = "john@test.com", DateOfBirth = new DateTime(1990, 1, 15) }
+        };
+        var pagedData = new PagedData<Patient>(patients, 1);
+
+        GetPatientsPagedQuery? capturedQuery = null;
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<GetPatientsPagedQuery>(), It.IsAny<CancellationToken>()))
+            .Callback<IRequest<PagedData<Patient>>, CancellationToken>((query, _) =>
+            {
+                if (query is GetPatientsPagedQuery pagedQuery)
+                    capturedQuery = pagedQuery;
+            })
+            .ReturnsAsync(pagedData);
+
+        var query = new ODataQueryOptions
+        {
+            Top = 10,
+            Skip = 20,
+            OrderBy = "lastName desc"
+        };
+
+        // Act
+        await _controller.GetAll(query, CancellationToken.None);
+
+        // Assert
+        capturedQuery.ShouldNotBeNull();
+        capturedQuery!.Skip.ShouldBe(20);
+        capturedQuery.Top.ShouldBe(10);
+        capturedQuery.OrderBy.ShouldBe("lastName");
+        capturedQuery.Descending.ShouldBeTrue();
     }
 
     [Fact]

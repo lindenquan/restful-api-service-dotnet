@@ -52,7 +52,7 @@ public class PrescriptionsControllerTests
             .Setup(m => m.Send(It.IsAny<GetPrescriptionsPagedQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedData);
 
-        var query = new ODataQueryParams { Count = true };
+        var query = new ODataQueryOptions { Count = true };
 
         // Act
         var result = await _controller.GetAll(query, CancellationToken.None);

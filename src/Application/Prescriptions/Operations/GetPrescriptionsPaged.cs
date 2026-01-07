@@ -6,7 +6,7 @@ using MediatR;
 namespace Application.Prescriptions.Operations;
 
 /// <summary>
-/// Query to get prescriptions with OData-style pagination.
+/// Query to get prescriptions with OData filtering, sorting, and pagination.
 /// </summary>
 public sealed record GetPrescriptionsPagedQuery(
     int Skip,

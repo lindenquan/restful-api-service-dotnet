@@ -7,7 +7,11 @@ A production-ready REST API built with **.NET 10** and **Clean Architecture**.
 - ✅ Clean Architecture with MediatR
 - ✅ API versioning (V1, V2)
 - ✅ API Key authentication with Admin/Regular user types
-- ✅ MongoDB database
+- ✅ **OData v4 (Safe Subset)** - Industry standard querying without `[EnableQuery]`
+- ✅ **OData Query Syntax** - `$top`, `$skip`, `$count`, `$orderby` (single/multi-field)
+- ✅ **OData Response Format** - `@odata.context`, `@odata.count`, `@odata.nextLink`, `value`
+- ✅ **OData Metadata** - `/odata/$metadata` for tool discovery (Power BI, Excel)
+- ✅ **Clean Architecture Maintained** - All queries through MediatR (business logic, validation, caching)
 - ✅ L1/L2 caching (Memory + Redis) with configurable consistency
 - ✅ Rate limiting (concurrency-based)
 - ✅ Docker Compose deployment
@@ -158,6 +162,7 @@ cp .env.example .env
 | [E2E Testing](docs/14-E2E-testing.md) | Run E2E tests against any environment (local/dev/stage/prod) |
 | [Kestrel Architecture](docs/19-kestrel-architecture.md) | Kestrel vs Tomcat, async I/O, thread safety by layer |
 | [Graceful Shutdown](docs/20-graceful-shutdown.md) | SIGTERM handling, in-flight request completion, K8s integration |
+| **[OData Implementation](docs/21-ODATA.md)** | **Complete guide: Safe OData subset, quick reference, implementation details, MongoDB compatibility, Clean Architecture** |
 
 ---
 
