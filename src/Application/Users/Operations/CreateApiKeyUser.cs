@@ -14,14 +14,14 @@ public record CreateApiKeyUserCommand(
     string Email,
     UserType UserType,
     string? Description = null,
-    string? CreatedBy = null) : IRequest<CreateApiKeyUserResult>;
+    Guid? CreatedBy = null) : IRequest<CreateApiKeyUserResult>;
 
 /// <summary>
 /// Result of creating an API key user.
 /// Contains the plain-text API key (shown only once).
 /// </summary>
 public record CreateApiKeyUserResult(
-    int UserId,
+    Guid UserId,
     string ApiKey,        // Plain-text key - SHOW ONLY ONCE
     string ApiKeyPrefix,  // First 8 chars for identification
     string UserName,
@@ -89,7 +89,7 @@ public sealed class CreateApiKeyUserHandler : IRequestHandler<CreateApiKeyUserCo
             UserType = request.UserType,
             Description = request.Description,
             IsActive = true,
-            Metadata = { CreatedBy = request.CreatedBy }
+            CreatedBy = request.CreatedBy
         };
 
         await _unitOfWork.Users.AddAsync(user, cancellationToken);

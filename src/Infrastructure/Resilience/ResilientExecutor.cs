@@ -1,4 +1,3 @@
-using Polly;
 using Polly.Registry;
 
 namespace Infrastructure.Resilience;

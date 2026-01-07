@@ -11,12 +11,12 @@ public sealed class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
     public CreateOrderValidator()
     {
         RuleFor(x => x.PatientId)
-            .GreaterThan(0)
-            .WithMessage("PatientId must be a positive number");
+            .NotEmpty()
+            .WithMessage("PatientId is required");
 
         RuleFor(x => x.PrescriptionId)
-            .GreaterThan(0)
-            .WithMessage("PrescriptionId must be a positive number");
+            .NotEmpty()
+            .WithMessage("PrescriptionId is required");
 
         RuleFor(x => x.Notes)
             .MaximumLength(500)

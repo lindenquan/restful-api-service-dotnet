@@ -11,8 +11,8 @@ public sealed class CreatePrescriptionValidator : AbstractValidator<CreatePrescr
     public CreatePrescriptionValidator()
     {
         RuleFor(x => x.PatientId)
-            .GreaterThan(0)
-            .WithMessage("PatientId must be a positive number");
+            .NotEmpty()
+            .WithMessage("PatientId is required");
 
         RuleFor(x => x.MedicationName)
             .NotEmpty()

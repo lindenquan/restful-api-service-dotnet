@@ -18,7 +18,7 @@ public record CreateUserRequest(
 /// Shared across all API versions.
 /// </summary>
 public record CreateUserResponse(
-    int UserId,
+    Guid UserId,
     string ApiKey,
     string ApiKeyPrefix,
     string UserName,

@@ -1,126 +1,240 @@
-using Application.Interfaces.Repositories;
-using Domain;
-using Microsoft.AspNetCore.Mvc.Testing;
+using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 namespace Tests.Api.E2E.Fixtures;
 
 /// <summary>
 /// Test fixture for API E2E tests.
-/// Uses WebApplicationFactory to spin up the API with environment-specific configuration.
 ///
-/// Environment:
-///   - local: Uses Docker Compose (localhost:27017, localhost:6379)
-///   - dev/stage/prod: Uses real connection strings from config files
+/// Supports two modes:
+///   1. Local mode: Tests against API running in Docker (localhost:8080)
+///   2. Remote mode: Tests against deployed API (dev/stage/prod)
 ///
-/// Set via ASPNETCORE_ENVIRONMENT environment variable (defaults to "local").
+/// Environment variables:
+///   - ASPNETCORE_ENVIRONMENT: Target environment (local, dev, stage, prod)
+///   - API_BASE_URL: Override base URL (optional, derived from environment if not set)
+///   - API_KEY: Admin API key for authentication
+///
+/// Usage:
+///   Local:  ASPNETCORE_ENVIRONMENT=local (uses Docker Compose API at localhost:8080)
+///   Remote: ASPNETCORE_ENVIRONMENT=dev API_BASE_URL=https://api.dev.example.com
 /// </summary>
-public sealed class ApiE2ETestFixture : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class ApiE2ETestFixture : IAsyncLifetime, IDisposable
 {
-    private const string AdminApiKey = "root-api-key-change-in-production-12345";
+    /// <summary>
+    /// Test patient ID - populated during seeding.
+    /// </summary>
+    public Guid TestPatientId { get; private set; }
+
+    /// <summary>
+    /// Test prescription ID - populated during seeding.
+    /// </summary>
+    public Guid TestPrescriptionId { get; private set; }
+
+    private readonly string _environment;
+    private readonly string _baseUrl;
+    private readonly string _apiKey;
+    private readonly HttpClient _httpClient;
 
     public HttpClient Client { get; private set; } = null!;
     public HttpClient AdminClient { get; private set; } = null!;
 
-    protected override IHost CreateHost(IHostBuilder builder)
+    public ApiE2ETestFixture()
     {
-        // Use environment from ASPNETCORE_ENVIRONMENT (defaults to "local")
-        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "local";
-        builder.UseEnvironment(environment);
-
-        // Override configuration to use environment-specific settings
-        builder.ConfigureAppConfiguration((context, config) =>
-        {
-            // Find the config directory - search upwards from current directory
-            var currentDir = Directory.GetCurrentDirectory();
-            var configPath = FindConfigDirectory(currentDir);
-
-            if (configPath == null)
-            {
-                throw new DirectoryNotFoundException(
-                    $"Could not find 'config' directory. Searched from: {currentDir}");
-            }
-
-            config.Sources.Clear();
-            config
-                .SetBasePath(configPath)
-                .AddJsonFile("appsettings.json", optional: false)
-                .AddJsonFile($"appsettings.{environment}.json", optional: true)
-                .AddEnvironmentVariables();
-        });
-
-        return base.CreateHost(builder);
+        _environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "local";
+        _apiKey = GetApiKey();
+        _baseUrl = GetBaseUrl();
+        _httpClient = new HttpClient();
     }
 
     public async Task InitializeAsync()
     {
-        // Create HTTP clients
-        Client = CreateClient();
+        // Create HTTP clients pointing to the real API
+        Client = new HttpClient { BaseAddress = new Uri(_baseUrl) };
 
-        // Create admin client with API key
-        AdminClient = CreateClient();
-        AdminClient.DefaultRequestHeaders.Add("X-API-Key", AdminApiKey);
+        AdminClient = new HttpClient { BaseAddress = new Uri(_baseUrl) };
+        AdminClient.DefaultRequestHeaders.Add("X-API-Key", _apiKey);
 
-        // Seed test data (Patient ID 1 and Prescription ID 1)
-        await SeedTestDataAsync();
+        // Wait for API to be healthy
+        await WaitForApiHealthAsync();
+
+        // Seed test data via API (not direct DB access)
+        await SeedTestDataViaApiAsync();
     }
 
     /// <summary>
-    /// Seeds test data required for E2E tests.
-    /// Creates a test patient (ID: 1) and prescription (ID: 1) if they don't exist.
+    /// Waits for the API to be healthy before running tests.
     /// </summary>
-    private async Task SeedTestDataAsync()
+    private async Task WaitForApiHealthAsync()
     {
-        using var scope = Services.CreateScope();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        const int MaxRetries = 30;
+        const int DelayMs = 1000;
 
-        // Check if patient already exists
-        var existingPatient = await unitOfWork.Patients.GetByIdAsync(1);
-        if (existingPatient == null)
+        for (var i = 0; i < MaxRetries; i++)
         {
-            var patient = new Patient
+            try
             {
-                Id = 1,
-                FirstName = "John",
-                LastName = "Doe",
-                Email = "john.doe@test.com",
-                Phone = "555-0100",
-                DateOfBirth = new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            };
-            await unitOfWork.Patients.AddAsync(patient);
-            await unitOfWork.SaveChangesAsync();
+                var response = await _httpClient.GetAsync($"{_baseUrl}/health");
+                if (response.IsSuccessStatusCode)
+                {
+                    return;
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // API not ready yet
+            }
+
+            await Task.Delay(DelayMs);
         }
 
-        // Check if prescription already exists
-        var existingPrescription = await unitOfWork.Prescriptions.GetByIdAsync(1);
-        if (existingPrescription == null)
+        throw new TimeoutException($"API at {_baseUrl} did not become healthy within {MaxRetries} seconds");
+    }
+
+    /// <summary>
+    /// Seeds test data via API calls (works for both local and remote).
+    /// Stores created IDs in TestPatientId and TestPrescriptionId properties.
+    /// </summary>
+    private async Task SeedTestDataViaApiAsync()
+    {
+        // Get or create test patient
+        var patientsResponse = await AdminClient.GetAsync("/api/v1/patients?$top=1");
+        if (patientsResponse.IsSuccessStatusCode)
         {
-            var prescription = new Prescription
+            var patients = await patientsResponse.Content.ReadFromJsonAsync<PagedApiResponse<PatientDetailDto>>();
+            if (patients?.Value.Count > 0)
             {
-                Id = 1,
-                PatientId = 1,
-                MedicationName = "Amoxicillin",
-                Dosage = "500mg",
-                Frequency = "Three times daily",
-                Quantity = 30,
-                RefillsRemaining = 2,
-                PrescriberName = "Dr. Smith",
-                PrescribedDate = DateTime.UtcNow.AddDays(-7),
-                ExpiryDate = DateTime.UtcNow.AddMonths(6),
-                Instructions = "Take with food"
-            };
-            await unitOfWork.Prescriptions.AddAsync(prescription);
-            await unitOfWork.SaveChangesAsync();
+                TestPatientId = patients.Value[0].Id;
+            }
+            else
+            {
+                // Create test patient
+                var patientRequest = new
+                {
+                    FirstName = "E2ETest",
+                    LastName = "Patient",
+                    Email = $"e2e-{Guid.NewGuid():N}@test.com",
+                    Phone = "555-0100",
+                    DateOfBirth = new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                };
+                var createPatientResponse = await AdminClient.PostAsJsonAsync("/api/v1/patients", patientRequest);
+                if (createPatientResponse.IsSuccessStatusCode)
+                {
+                    var createdPatient = await createPatientResponse.Content.ReadFromJsonAsync<PatientDetailDto>();
+                    TestPatientId = createdPatient!.Id;
+                }
+            }
+        }
+
+        // Get or create test prescription
+        var prescriptionsResponse = await AdminClient.GetAsync("/api/v1/prescriptions?$top=1");
+        if (prescriptionsResponse.IsSuccessStatusCode)
+        {
+            var prescriptions = await prescriptionsResponse.Content.ReadFromJsonAsync<PagedApiResponse<PrescriptionDetailDto>>();
+            if (prescriptions?.Value.Count > 0)
+            {
+                TestPrescriptionId = prescriptions.Value[0].Id;
+            }
+            else if (TestPatientId != Guid.Empty)
+            {
+                // Create test prescription
+                var prescriptionRequest = new
+                {
+                    PatientId = TestPatientId,
+                    MedicationName = "E2E-Amoxicillin",
+                    Dosage = "500mg",
+                    Frequency = "Three times daily",
+                    Quantity = 30,
+                    RefillsAllowed = 2,
+                    PrescriberName = "Dr. E2E",
+                    ExpiryDate = DateTime.UtcNow.AddMonths(6),
+                    Instructions = "Take with food"
+                };
+                var createPrescriptionResponse = await AdminClient.PostAsJsonAsync("/api/v1/prescriptions", prescriptionRequest);
+                if (createPrescriptionResponse.IsSuccessStatusCode)
+                {
+                    var createdPrescription = await createPrescriptionResponse.Content.ReadFromJsonAsync<PrescriptionDetailDto>();
+                    TestPrescriptionId = createdPrescription!.Id;
+                }
+            }
         }
     }
 
-    public new async Task DisposeAsync()
+    public Task DisposeAsync()
+    {
+        Dispose();
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
     {
         Client?.Dispose();
         AdminClient?.Dispose();
-        await base.DisposeAsync();
+        _httpClient.Dispose();
+    }
+
+    /// <summary>
+    /// Gets the API base URL based on environment.
+    /// </summary>
+    private string GetBaseUrl()
+    {
+        // Check for explicit override
+        var explicitUrl = Environment.GetEnvironmentVariable("API_BASE_URL");
+        if (!string.IsNullOrEmpty(explicitUrl))
+        {
+            return explicitUrl.TrimEnd('/');
+        }
+
+        // Default URLs per environment
+        return _environment.ToLowerInvariant() switch
+        {
+            "local" => "http://localhost:8080",
+            "dev" => Environment.GetEnvironmentVariable("API_BASE_URL_DEV")
+                     ?? throw new InvalidOperationException("API_BASE_URL or API_BASE_URL_DEV must be set for dev environment"),
+            "stage" => Environment.GetEnvironmentVariable("API_BASE_URL_STAGE")
+                       ?? throw new InvalidOperationException("API_BASE_URL or API_BASE_URL_STAGE must be set for stage environment"),
+            "prod" => throw new InvalidOperationException("E2E tests should not run against production"),
+            _ => throw new InvalidOperationException($"Unknown environment: {_environment}")
+        };
+    }
+
+    /// <summary>
+    /// Gets the API key for authentication.
+    /// </summary>
+    private string GetApiKey()
+    {
+        // Check for explicit API key
+        var apiKey = Environment.GetEnvironmentVariable("API_KEY");
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            return apiKey;
+        }
+
+        // For local environment, use the default development API key
+        if (_environment.Equals("local", StringComparison.OrdinalIgnoreCase))
+        {
+            // Load from config file
+            var configPath = FindConfigDirectory(Directory.GetCurrentDirectory());
+            if (configPath != null)
+            {
+                var config = new ConfigurationBuilder()
+                    .SetBasePath(configPath)
+                    .AddJsonFile("appsettings.json", optional: true)
+                    .AddJsonFile("appsettings.local.json", optional: true)
+                    .Build();
+
+                var configKey = config["RootAdmin:InitialApiKey"];
+                if (!string.IsNullOrEmpty(configKey))
+                {
+                    return configKey;
+                }
+            }
+
+            // Fallback to well-known development key
+            return "root-api-key-change-in-production-12345";
+        }
+
+        throw new InvalidOperationException($"API_KEY environment variable must be set for {_environment} environment");
     }
 
     /// <summary>
@@ -143,5 +257,10 @@ public sealed class ApiE2ETestFixture : WebApplicationFactory<Program>, IAsyncLi
 
         return null;
     }
+
+    // Helper DTOs for seeding - minimal records with just the Id we need
+    private sealed record PagedApiResponse<T>(IReadOnlyList<T> Value);
+    private sealed record PatientDetailDto(Guid Id);
+    private sealed record PrescriptionDetailDto(Guid Id);
 }
 

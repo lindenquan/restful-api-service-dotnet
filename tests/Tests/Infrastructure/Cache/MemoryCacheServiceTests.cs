@@ -1,8 +1,8 @@
 using Infrastructure.Cache;
-using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Shouldly;
 
 namespace Tests.Infrastructure.Cache;
 
@@ -55,7 +55,7 @@ public sealed class MemoryCacheServiceTests : IDisposable
 
         // Assert
         var retrieved = _sut.Get<string>(key);
-        retrieved.Should().Be(value);
+        retrieved.ShouldBe(value);
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public sealed class MemoryCacheServiceTests : IDisposable
         var result = _sut.Get<string>("non-existent-key");
 
         // Assert
-        result.Should().BeNull();
+        result.ShouldBeNull();
     }
 
     [Fact]
@@ -80,8 +80,8 @@ public sealed class MemoryCacheServiceTests : IDisposable
         var exists = _sut.TryGet<string>(key, out var retrieved);
 
         // Assert
-        exists.Should().BeTrue();
-        retrieved.Should().Be(value);
+        exists.ShouldBeTrue();
+        retrieved.ShouldBe(value);
     }
 
     [Fact]
@@ -91,8 +91,8 @@ public sealed class MemoryCacheServiceTests : IDisposable
         var exists = _sut.TryGet<string>("non-existent-key", out var retrieved);
 
         // Assert
-        exists.Should().BeFalse();
-        retrieved.Should().BeNull();
+        exists.ShouldBeFalse();
+        retrieved.ShouldBeNull();
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public sealed class MemoryCacheServiceTests : IDisposable
 
         // Assert
         var exists = _sut.TryGet<string>(key, out _);
-        exists.Should().BeFalse();
+        exists.ShouldBeFalse();
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public sealed class MemoryCacheServiceTests : IDisposable
         var exists = _sut.Exists(key);
 
         // Assert
-        exists.Should().BeTrue();
+        exists.ShouldBeTrue();
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public sealed class MemoryCacheServiceTests : IDisposable
         var exists = _sut.Exists("non-existent-key");
 
         // Assert
-        exists.Should().BeFalse();
+        exists.ShouldBeFalse();
     }
 
     [Fact]
@@ -152,9 +152,9 @@ public sealed class MemoryCacheServiceTests : IDisposable
         });
 
         // Assert
-        result.Should().Be(value);
-        factoryCalled.Should().BeTrue();
-        _sut.Exists(key).Should().BeTrue();
+        result.ShouldBe(value);
+        factoryCalled.ShouldBeTrue();
+        _sut.Exists(key).ShouldBeTrue();
     }
 
     [Fact]
@@ -174,8 +174,8 @@ public sealed class MemoryCacheServiceTests : IDisposable
         });
 
         // Assert
-        result.Should().Be(value);
-        factoryCalled.Should().BeFalse();
+        result.ShouldBe(value);
+        factoryCalled.ShouldBeFalse();
     }
 }
 

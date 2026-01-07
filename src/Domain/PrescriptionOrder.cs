@@ -12,8 +12,8 @@ public class PrescriptionOrder : BaseEntity
     public DateTime? PickupDate { get; set; }
 
     // Foreign keys
-    public int PatientId { get; set; }
-    public int PrescriptionId { get; set; }
+    public Guid PatientId { get; set; }
+    public Guid PrescriptionId { get; set; }
 
     // Navigation properties
     public Patient? Patient { get; set; }

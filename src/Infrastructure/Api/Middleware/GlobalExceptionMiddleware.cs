@@ -40,6 +40,7 @@ public class GlobalExceptionMiddleware
     {
         var (statusCode, errorType, message) = exception switch
         {
+            OutOfMemoryException => (HttpStatusCode.ServiceUnavailable, "ServiceUnavailable", "The service is temporarily unavailable due to resource constraints. Please retry later."),
             ArgumentNullException => (HttpStatusCode.BadRequest, "BadRequest", "A required parameter was missing."),
             ArgumentException => (HttpStatusCode.BadRequest, "BadRequest", exception.Message),
             KeyNotFoundException => (HttpStatusCode.NotFound, "NotFound", "The requested resource was not found."),
@@ -48,6 +49,12 @@ public class GlobalExceptionMiddleware
             TimeoutException => (HttpStatusCode.GatewayTimeout, "Timeout", "The operation timed out."),
             _ => (HttpStatusCode.InternalServerError, "InternalServerError", "An unexpected error occurred.")
         };
+
+        // For OOM, add Retry-After header to help clients back off
+        if (exception is OutOfMemoryException)
+        {
+            context.Response.Headers["Retry-After"] = "30";
+        }
 
         // Log the full exception
         _logger.LogError(

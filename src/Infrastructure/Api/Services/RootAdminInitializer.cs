@@ -1,7 +1,7 @@
-using Infrastructure.Persistence.Configuration;
-using Infrastructure.Persistence.Security;
 using Application.Interfaces.Repositories;
 using Domain;
+using Infrastructure.Persistence.Configuration;
+using Infrastructure.Persistence.Security;
 using Microsoft.Extensions.Options;
 
 namespace Infrastructure.Api.Services;
@@ -65,7 +65,7 @@ public class RootAdminInitializer : IHostedService
                 existingRootAdmin.UserType = UserType.Admin;
                 existingRootAdmin.IsActive = true;
                 existingRootAdmin.Description = "System root admin - updated on startup";
-                existingRootAdmin.Metadata.UpdatedBy = "SYSTEM";
+                existingRootAdmin.UpdatedBy = null; // System operation - no authenticated user
 
                 unitOfWork.Users.Update(existingRootAdmin);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -90,7 +90,7 @@ public class RootAdminInitializer : IHostedService
                     UserType = UserType.Admin,
                     IsActive = true,
                     Description = "System root admin - created on first startup",
-                    Metadata = { CreatedBy = "SYSTEM" }
+                    CreatedBy = null // System operation - no authenticated user
                 };
 
                 await unitOfWork.Users.AddAsync(rootAdmin, cancellationToken);

@@ -16,7 +16,7 @@ public class Prescription : BaseEntity
     public string? Instructions { get; set; }  // Special instructions
 
     // Foreign key - the patient this prescription is for
-    public int PatientId { get; set; }
+    public Guid PatientId { get; set; }
 
     // Navigation properties
     public Patient? Patient { get; set; }

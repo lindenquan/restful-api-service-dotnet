@@ -74,8 +74,25 @@ public static class DependencyInjection
         }
         else if (l1Enabled)
         {
-            // Only L1 enabled
-            services.AddSingleton<ICacheService>(sp => sp.GetRequiredService<MemoryCacheService>());
+            // Only L1 enabled - warn if Strong consistency is configured without L2
+            if (settings.L1.Consistency == CacheConsistency.Strong)
+            {
+                // Log warning at registration time (logger not available, will log at runtime)
+                services.AddSingleton<ICacheService>(sp =>
+                {
+                    var logger = sp.GetRequiredService<ILogger<MemoryCacheService>>();
+                    logger.LogWarning(
+                        "L1 cache is configured with Strong consistency but L2 (Redis) is disabled. " +
+                        "Strong consistency requires Redis pub/sub for cross-instance invalidation. " +
+                        "In this configuration, each instance will have an isolated L1 cache with no cross-instance invalidation. " +
+                        "Consider enabling L2 cache or switching to Eventual consistency.");
+                    return sp.GetRequiredService<MemoryCacheService>();
+                });
+            }
+            else
+            {
+                services.AddSingleton<ICacheService>(sp => sp.GetRequiredService<MemoryCacheService>());
+            }
         }
         else
         {

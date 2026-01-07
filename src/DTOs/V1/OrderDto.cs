@@ -5,10 +5,10 @@ namespace DTOs.V1;
 /// V1 uses simpler field names and fewer fields.
 /// </summary>
 public record OrderDto(
-    int Id,
-    int PatientId,
+    Guid Id,
+    Guid PatientId,
     string CustomerName,      // V1 calls it "CustomerName" (V2 calls it "PatientName")
-    int PrescriptionId,
+    Guid PrescriptionId,
     string Medication,        // V1 calls it "Medication" (V2 calls it "MedicationName")
     DateTime OrderDate,
     string Status,
@@ -19,8 +19,8 @@ public record OrderDto(
 /// V1 Create Order request DTO.
 /// </summary>
 public record CreateOrderRequest(
-    int PatientId,
-    int PrescriptionId,
+    Guid PatientId,
+    Guid PrescriptionId,
     string? Notes
 );
 

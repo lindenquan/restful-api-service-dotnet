@@ -9,11 +9,11 @@ namespace Application.Orders.Operations;
 /// </summary>
 /// <param name="OrderId">ID of the order to delete</param>
 /// <param name="HardDelete">If true, permanently delete. If false, soft delete.</param>
-/// <param name="DeletedBy">Username of who is deleting</param>
+/// <param name="DeletedBy">User ID of who is deleting</param>
 public record DeleteOrderCommand(
-    int OrderId,
+    Guid OrderId,
     bool HardDelete = false,
-    string? DeletedBy = null) : IRequest<bool>;
+    Guid? DeletedBy = null) : IRequest<bool>;
 
 /// <summary>
 /// Handler for DeleteOrderCommand.

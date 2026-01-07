@@ -7,7 +7,7 @@ namespace Application.Orders.Operations;
 /// <summary>
 /// Command to cancel a prescription order.
 /// </summary>
-public record CancelOrderCommand(int OrderId) : IRequest<bool>;
+public record CancelOrderCommand(Guid OrderId) : IRequest<bool>;
 
 /// <summary>
 /// Handler for CancelOrderCommand.

@@ -1,5 +1,5 @@
-using Infrastructure.Persistence.Configuration;
 using Application.Interfaces.Repositories;
+using Infrastructure.Persistence.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Infrastructure.Api.Services;

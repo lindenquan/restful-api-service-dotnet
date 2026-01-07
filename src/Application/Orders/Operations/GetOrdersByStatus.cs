@@ -1,5 +1,4 @@
 using Application.Interfaces.Repositories;
-using Application.Orders.Shared;
 using Domain;
 using MediatR;
 
@@ -7,15 +6,15 @@ namespace Application.Orders.Operations;
 
 /// <summary>
 /// Query to get prescription orders by status.
-/// Uses internal DTO - controllers map to/from versioned DTOs.
+/// Controllers map to/from versioned DTOs.
 /// </summary>
-public record GetOrdersByStatusQuery(OrderStatus Status) : IRequest<IEnumerable<InternalOrderDto>>;
+public record GetOrdersByStatusQuery(OrderStatus Status) : IRequest<IEnumerable<PrescriptionOrder>>;
 
 /// <summary>
 /// Handler for GetOrdersByStatusQuery.
 /// Sealed for performance optimization and design intent.
 /// </summary>
-public sealed class GetOrdersByStatusHandler : IRequestHandler<GetOrdersByStatusQuery, IEnumerable<InternalOrderDto>>
+public sealed class GetOrdersByStatusHandler : IRequestHandler<GetOrdersByStatusQuery, IEnumerable<PrescriptionOrder>>
 {
     private readonly IUnitOfWork _unitOfWork;
 
@@ -24,10 +23,9 @@ public sealed class GetOrdersByStatusHandler : IRequestHandler<GetOrdersByStatus
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IEnumerable<InternalOrderDto>> Handle(GetOrdersByStatusQuery request, CancellationToken ct)
+    public async Task<IEnumerable<PrescriptionOrder>> Handle(GetOrdersByStatusQuery request, CancellationToken ct)
     {
-        var orders = await _unitOfWork.PrescriptionOrders.GetByStatusAsync(request.Status, ct);
-        return EntityToInternalDto.MapMany(orders);
+        return await _unitOfWork.PrescriptionOrders.GetByStatusWithDetailsAsync(request.Status, ct);
     }
 }
 

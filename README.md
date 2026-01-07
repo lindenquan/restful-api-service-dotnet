@@ -26,6 +26,10 @@ A production-ready REST API built with **.NET 10** and **Clean Architecture**.
 - [Docker](https://www.docker.com/) (for MongoDB/Redis)
 - [PowerShell 7.5+](https://github.com/PowerShell/PowerShell) - Cross-platform automation
 
+#### Optional: VSCode Extensions
+
+- [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) - REST client for testing API endpoints manually using `.rest` files in the `http/` folder
+
 #### Installing PowerShell 7.5+
 
 PowerShell 7.5 requires .NET 9. If you already have .NET 10 installed, install .NET 9 alongside it:
@@ -57,8 +61,8 @@ cp .env.example .env
 # Or run with explicit environment override
 ./build.ps1 local
 
-# API available at http://localhost:5000
-# Swagger UI available at http://localhost:5000/swagger
+# API available at http://localhost:8080
+# Swagger UI available at http://localhost:8080/swagger
 ```
 
 > **Note:** Swagger UI is enabled in `local` and `dev` environments.
@@ -81,8 +85,8 @@ cp .env.example .env
 # Stop all services
 ./build.ps1 docker-down
 
-# API available at http://localhost:5000
-# Health check: http://localhost:5000/health
+# API available at http://localhost:8080
+# Health check: http://localhost:8080/health
 ```
 
 ---
@@ -116,10 +120,10 @@ cp .env.example .env
 
 ```
 ├── src/
-│   ├── Entities/         # Core business entities (no dependencies)
+│   ├── Domain/           # Core business entities (no dependencies)
 │   ├── DTOs/             # Shared DTOs for all API versions (independent project)
 │   ├── Application/      # Use cases, operations, validators
-│   └── Adapters/         # Interface implementations
+│   └── Infrastructure/   # Interface implementations
 │       ├── Api/          # Controllers, middleware, configuration
 │       ├── Cache/        # L1/L2 cache implementations
 │       └── Persistence/  # Database, external services
@@ -151,7 +155,9 @@ cp .env.example .env
 | [Caching Strategy](docs/09-caching-strategy.md) | L1/L2 cache configuration and usage |
 | [CancellationToken Best Practices](docs/10-cancellation-tokens.md) | Graceful cancellation and resource management |
 | [Sealed Classes](docs/11-sealed-classes.md) | Performance optimization with sealed keyword |
-| [E2E Testing Environments](docs/E2E_TESTING_ENVIRONMENTS.md) | Run E2E tests against any environment (local/dev/stage/prod) |
+| [E2E Testing](docs/14-E2E-testing.md) | Run E2E tests against any environment (local/dev/stage/prod) |
+| [Kestrel Architecture](docs/19-kestrel-architecture.md) | Kestrel vs Tomcat, async I/O, thread safety by layer |
+| [Graceful Shutdown](docs/20-graceful-shutdown.md) | SIGTERM handling, in-flight request completion, K8s integration |
 
 ---
 
@@ -255,7 +261,7 @@ REDIS_PORT=6379
 | `prod` | Uses real prod MongoDB/Redis |
 | `eu-prod`, `amr-prod` | Regional production deployments |
 
-See [E2E Testing Environments](docs/E2E_TESTING_ENVIRONMENTS.md) for more details.
+See [E2E Testing](docs/14-E2E-testing.md) for more details.
 
 ---
 

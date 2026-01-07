@@ -72,11 +72,11 @@ Modern .NET can **enforce** EditorConfig rules during build, failing CI if rules
 │                     FxCop (Legacy)                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ❌ Separate tool - not integrated with compiler                    │
-│  ❌ Analyzed compiled DLLs (post-build, slow)                       │
-│  ❌ XML-based rule configuration                                    │
-│  ❌ No IDE integration - had to run manually                        │
-│  ❌ Only code quality, no code style                                │
+│  ❌ Separate tool - not integrated with compiler        　　　      │
+│  ❌ Analyzed compiled DLLs (post-build, slow)    　　　             │
+│  ❌ XML-based rule configuration              　　　                │
+│  ❌ No IDE integration - had to run manually           　　　       │
+│  ❌ Only code quality, no code style　　　                          │
 │                                                                     │
 │  Configuration: FxCop.exe /rules:+Microsoft.Design#CA1001           │
 │                                                                     │
@@ -92,11 +92,11 @@ Modern .NET can **enforce** EditorConfig rules during build, failing CI if rules
 │                     StyleCop (Legacy)                               │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ❌ Separate NuGet package required                                 │
-│  ❌ XML-based Settings.StyleCop configuration file                  │
-│  ❌ Not version-controlled easily                                   │
-│  ❌ Visual Studio only                                              │
-│  ❌ Slow - analyzed source at build time                            │
+│  ❌ Separate NuGet package required             　　　              │
+│  ❌ XML-based Settings.StyleCop configuration file    　　　        │
+│  ❌ Not version-controlled easily                   　　　          │
+│  ❌ Visual Studio only                            　　　            │
+│  ❌ Slow - analyzed source at build time       　　　               │
 │                                                                     │
 │  Configuration: Settings.StyleCop (XML file)                        │
 │                                                                     │
@@ -152,12 +152,12 @@ Modern .NET can **enforce** EditorConfig rules during build, failing CI if rules
 │                    Modern .NET (5, 6, 7, 8, 9, 10)                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ✅ Roslyn Analyzers built into SDK - no NuGet needed               │
-│  ✅ EditorConfig is THE standard for all settings                   │
-│  ✅ Code analysis enabled by default (.NET 5+)                      │
-│  ✅ Build-time enforcement with EnforceCodeStyleInBuild             │
-│  ✅ IDE + CLI + CI all use same rules                               │
-│  ✅ Human-readable format (not XML)                                 │
+│  ✅ Roslyn Analyzers built into SDK - no NuGet needed    　　　     │
+│  ✅ EditorConfig is THE standard for all settings      　　　       │
+│  ✅ Code analysis enabled by default (.NET 5+)             　　　   │
+│  ✅ Build-time enforcement with EnforceCodeStyleInBuild     　　　  │
+│  ✅ IDE + CLI + CI all use same rules                        　　　 │
+│  ✅ Human-readable format (not XML)                         　　　  │
 │                                                                     │
 │  Configuration: .editorconfig (simple key=value)                    │
 │                                                                     │

@@ -1,5 +1,5 @@
 using Domain;
-using FluentAssertions;
+using Shouldly;
 
 namespace Tests.Domain.Entities;
 
@@ -18,7 +18,7 @@ public class PrescriptionTests
         };
 
         // Act & Assert
-        prescription.IsExpired.Should().BeFalse();
+        prescription.IsExpired.ShouldBeFalse();
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public class PrescriptionTests
         };
 
         // Act & Assert
-        prescription.IsExpired.Should().BeTrue();
+        prescription.IsExpired.ShouldBeTrue();
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class PrescriptionTests
         };
 
         // Act & Assert
-        prescription.IsExpired.Should().BeFalse();
+        prescription.IsExpired.ShouldBeFalse();
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class PrescriptionTests
         };
 
         // Act & Assert
-        prescription.CanRefill.Should().BeTrue();
+        prescription.CanRefill.ShouldBeTrue();
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class PrescriptionTests
         };
 
         // Act & Assert
-        prescription.CanRefill.Should().BeFalse();
+        prescription.CanRefill.ShouldBeFalse();
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class PrescriptionTests
         };
 
         // Act & Assert
-        prescription.CanRefill.Should().BeFalse();
+        prescription.CanRefill.ShouldBeFalse();
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class PrescriptionTests
         };
 
         // Act & Assert
-        prescription.CanRefill.Should().BeFalse();
+        prescription.CanRefill.ShouldBeFalse();
     }
 }
 

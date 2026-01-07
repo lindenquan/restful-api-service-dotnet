@@ -1,9 +1,9 @@
 using Application.Behaviors;
-using FluentAssertions;
 using FluentValidation;
 using FluentValidation.Results;
 using MediatR;
 using Moq;
+using Shouldly;
 
 namespace Tests.Application.Behaviors;
 
@@ -38,7 +38,7 @@ public class ValidationBehaviorTests
             CancellationToken.None);
 
         // Assert
-        result.Should().Be("Success");
+        result.ShouldBe("Success");
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class ValidationBehaviorTests
             CancellationToken.None);
 
         // Assert
-        result.Should().Be("Success");
+        result.ShouldBe("Success");
     }
 
     [Fact]
@@ -82,14 +82,11 @@ public class ValidationBehaviorTests
         var behavior = new ValidationBehavior<TestRequest, string>(validators);
         var request = new TestRequest("");
 
-        // Act
-        var act = () => behavior.Handle(
+        // Act & Assert
+        await Should.ThrowAsync<ValidationException>(() => behavior.Handle(
             request,
             CreateNextDelegate("Success"),
-            CancellationToken.None);
-
-        // Assert
-        await act.Should().ThrowAsync<ValidationException>();
+            CancellationToken.None));
     }
 
     [Fact]
@@ -142,15 +139,12 @@ public class ValidationBehaviorTests
         var behavior = new ValidationBehavior<TestRequest, string>(validators);
         var request = new TestRequest("");
 
-        // Act
-        var act = () => behavior.Handle(
+        // Act & Assert
+        var exception = await Should.ThrowAsync<ValidationException>(() => behavior.Handle(
             request,
             CreateNextDelegate("Success"),
-            CancellationToken.None);
-
-        // Assert
-        var exception = await act.Should().ThrowAsync<ValidationException>();
-        exception.Which.Errors.Should().HaveCount(3);
+            CancellationToken.None));
+        exception.Errors.Count().ShouldBe(3);
     }
 }
 

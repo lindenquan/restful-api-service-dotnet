@@ -1,6 +1,8 @@
 using System.Linq.Expressions;
 using Application.Interfaces.Repositories;
 using Domain;
+using DTOs.Shared;
+using Infrastructure.Persistence.Models;
 using Infrastructure.Resilience;
 using MongoDB.Driver;
 
@@ -8,66 +10,84 @@ namespace Infrastructure.Persistence.Repositories;
 
 /// <summary>
 /// Generic MongoDB repository implementation with resilience (retry + circuit breaker).
+/// Works with data models internally, maps to/from domain entities at boundaries.
+/// Uses UUID v7 for entity identifiers.
 /// </summary>
-/// <typeparam name="T">Entity type that has an Id property</typeparam>
-public class MongoRepository<T> : IRepository<T> where T : BaseEntity
+/// <typeparam name="TEntity">Domain entity type</typeparam>
+/// <typeparam name="TDataModel">Data model type for persistence</typeparam>
+public abstract class MongoRepository<TEntity, TDataModel> : IRepository<TEntity>
+    where TEntity : BaseEntity
+    where TDataModel : BaseDataModel
 {
-    protected readonly IMongoCollection<T> _collection;
+    protected readonly IMongoCollection<TDataModel> _collection;
     protected readonly IResilientExecutor _resilientExecutor;
 
-    public MongoRepository(IMongoCollection<T> collection, IResilientExecutor resilientExecutor)
+    protected MongoRepository(IMongoCollection<TDataModel> collection, IResilientExecutor resilientExecutor)
     {
         _collection = collection;
         _resilientExecutor = resilientExecutor;
     }
 
-    public async Task<T?> GetByIdAsync(int id, CancellationToken ct = default)
+    /// <summary>
+    /// Map a data model to a domain entity.
+    /// </summary>
+    protected abstract TEntity ToDomain(TDataModel model);
+
+    /// <summary>
+    /// Map a domain entity to a data model.
+    /// </summary>
+    protected abstract TDataModel ToDataModel(TEntity entity);
+
+    public async Task<TEntity?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         return await _resilientExecutor.ExecuteMongoDbAsync(async token =>
         {
-            var filter = Builders<T>.Filter.And(
-                Builders<T>.Filter.Eq(e => e.Id, id),
-                Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
-            return await _collection.Find(filter).FirstOrDefaultAsync(token);
+            var filter = Builders<TDataModel>.Filter.And(
+                Builders<TDataModel>.Filter.Eq(e => e.Id, id),
+                Builders<TDataModel>.Filter.Eq(e => e.Metadata.IsDeleted, false));
+            var model = await _collection.Find(filter).FirstOrDefaultAsync(token);
+            return model == null ? null : ToDomain(model);
         }, ct);
     }
 
-    public async Task<IEnumerable<T>> GetAllAsync(CancellationToken ct = default)
-    {
-        return await _resilientExecutor.ExecuteMongoDbAsync(async token =>
-            await _collection.Find(e => !e.Metadata.IsDeleted).ToListAsync(token), ct);
-    }
-
-    public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
+    public async Task<IEnumerable<TEntity>> GetAllAsync(CancellationToken ct = default)
     {
         return await _resilientExecutor.ExecuteMongoDbAsync(async token =>
         {
-            var filter = Builders<T>.Filter.And(
-                Builders<T>.Filter.Where(predicate),
-                Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
-            return await _collection.Find(filter).ToListAsync(token);
+            var models = await _collection.Find(e => !e.Metadata.IsDeleted).ToListAsync(token);
+            return models.Select(ToDomain);
         }, ct);
     }
 
-    public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
+    public async Task<IEnumerable<TEntity>> FindAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken ct = default)
     {
+        // For find operations, we need to fetch all non-deleted and filter in memory
+        // This is a limitation of mapping between entity and data model
         return await _resilientExecutor.ExecuteMongoDbAsync(async token =>
         {
-            var filter = Builders<T>.Filter.And(
-                Builders<T>.Filter.Where(predicate),
-                Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
-            return await _collection.Find(filter).FirstOrDefaultAsync(token);
+            var models = await _collection.Find(e => !e.Metadata.IsDeleted).ToListAsync(token);
+            var entities = models.Select(ToDomain);
+            return entities.Where(predicate.Compile());
         }, ct);
     }
 
-    public async Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
+    public async Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken ct = default)
     {
         return await _resilientExecutor.ExecuteMongoDbAsync(async token =>
         {
-            var filter = Builders<T>.Filter.And(
-                Builders<T>.Filter.Where(predicate),
-                Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
-            return await _collection.Find(filter).AnyAsync(token);
+            var models = await _collection.Find(e => !e.Metadata.IsDeleted).ToListAsync(token);
+            var entities = models.Select(ToDomain);
+            return entities.FirstOrDefault(predicate.Compile());
+        }, ct);
+    }
+
+    public async Task<bool> ExistsAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken ct = default)
+    {
+        return await _resilientExecutor.ExecuteMongoDbAsync(async token =>
+        {
+            var models = await _collection.Find(e => !e.Metadata.IsDeleted).ToListAsync(token);
+            var entities = models.Select(ToDomain);
+            return entities.Any(predicate.Compile());
         }, ct);
     }
 
@@ -77,92 +97,214 @@ public class MongoRepository<T> : IRepository<T> where T : BaseEntity
             (int)await _collection.CountDocumentsAsync(e => !e.Metadata.IsDeleted, cancellationToken: token), ct);
     }
 
-    public async Task<int> CountAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
+    public async Task<int> CountAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken ct = default)
     {
         return await _resilientExecutor.ExecuteMongoDbAsync(async token =>
         {
-            var filter = Builders<T>.Filter.And(
-                Builders<T>.Filter.Where(predicate),
-                Builders<T>.Filter.Eq(e => e.Metadata.IsDeleted, false));
-            return (int)await _collection.CountDocumentsAsync(filter, cancellationToken: token);
+            var models = await _collection.Find(e => !e.Metadata.IsDeleted).ToListAsync(token);
+            var entities = models.Select(ToDomain);
+            return entities.Count(predicate.Compile());
         }, ct);
     }
 
-    public async Task AddAsync(T entity, CancellationToken ct = default)
+    public async Task AddAsync(TEntity entity, CancellationToken ct = default)
     {
         await _resilientExecutor.ExecuteMongoDbAsync(async token =>
         {
-            if (entity.Id == 0)
+            // Generate UUID v7 if not already set
+            if (entity.Id == Guid.Empty)
             {
-                entity.Id = await GetNextIdAsync(token);
+                entity.Id = Guid.CreateVersion7();
             }
-            entity.Metadata.CreatedAt = DateTime.UtcNow;
-            await _collection.InsertOneAsync(entity, cancellationToken: token);
+            var dataModel = ToDataModel(entity);
+            dataModel.Id = entity.Id;
+            dataModel.Metadata.CreatedAt = DateTime.UtcNow;
+            dataModel.Metadata.CreatedBy = entity.CreatedBy;
+            await _collection.InsertOneAsync(dataModel, cancellationToken: token);
         }, ct);
     }
 
-    public async Task AddRangeAsync(IEnumerable<T> entities, CancellationToken ct = default)
+    public async Task AddRangeAsync(IEnumerable<TEntity> entities, CancellationToken ct = default)
     {
         await _resilientExecutor.ExecuteMongoDbAsync(async token =>
         {
-            var entityList = entities.ToList();
-            var nextId = await GetNextIdAsync(token);
+            var dataModels = new List<TDataModel>();
 
-            foreach (var entity in entityList)
+            foreach (var entity in entities)
             {
-                if (entity.Id == 0)
+                // Generate UUID v7 if not already set
+                if (entity.Id == Guid.Empty)
                 {
-                    entity.Id = nextId++;
+                    entity.Id = Guid.CreateVersion7();
                 }
-                entity.Metadata.CreatedAt = DateTime.UtcNow;
+                var dataModel = ToDataModel(entity);
+                dataModel.Id = entity.Id;
+                dataModel.Metadata.CreatedAt = DateTime.UtcNow;
+                dataModel.Metadata.CreatedBy = entity.CreatedBy;
+                dataModels.Add(dataModel);
             }
 
-            await _collection.InsertManyAsync(entityList, cancellationToken: token);
+            await _collection.InsertManyAsync(dataModels, cancellationToken: token);
         }, ct);
     }
 
-    public void Update(T entity)
+    public void Update(TEntity entity)
     {
-        entity.Metadata.UpdatedAt = DateTime.UtcNow;
-        var filter = Builders<T>.Filter.Eq(e => e.Id, entity.Id);
-        _collection.ReplaceOneAsync(filter, entity).GetAwaiter().GetResult();
+        var dataModel = ToDataModel(entity);
+        dataModel.Metadata.UpdatedAt = DateTime.UtcNow;
+        dataModel.Metadata.UpdatedBy = entity.UpdatedBy;
+        var filter = Builders<TDataModel>.Filter.Eq(e => e.Id, entity.Id);
+        _collection.ReplaceOneAsync(filter, dataModel).GetAwaiter().GetResult();
     }
 
-    public void SoftDelete(T entity, string? deletedBy = null)
+    public void SoftDelete(TEntity entity, Guid? deletedBy = null)
     {
-        entity.Metadata.IsDeleted = true;
-        entity.Metadata.DeletedAt = DateTime.UtcNow;
-        entity.Metadata.DeletedBy = deletedBy;
-        Update(entity);
+        var filter = Builders<TDataModel>.Filter.Eq(e => e.Id, entity.Id);
+        var update = Builders<TDataModel>.Update
+            .Set(e => e.Metadata.IsDeleted, true)
+            .Set(e => e.Metadata.DeletedAt, DateTime.UtcNow)
+            .Set(e => e.Metadata.DeletedBy, deletedBy);
+        _collection.UpdateOneAsync(filter, update).GetAwaiter().GetResult();
     }
 
-    public void HardDelete(T entity)
+    public void HardDelete(TEntity entity)
     {
-        var filter = Builders<T>.Filter.Eq(e => e.Id, entity.Id);
+        var filter = Builders<TDataModel>.Filter.Eq(e => e.Id, entity.Id);
         _collection.DeleteOneAsync(filter).GetAwaiter().GetResult();
     }
 
-    public void HardDeleteRange(IEnumerable<T> entities)
+    public void HardDeleteRange(IEnumerable<TEntity> entities)
     {
         var ids = entities.Select(e => e.Id).ToList();
-        var filter = Builders<T>.Filter.In(e => e.Id, ids);
+        var filter = Builders<TDataModel>.Filter.In(e => e.Id, ids);
         _collection.DeleteManyAsync(filter).GetAwaiter().GetResult();
     }
 
-    public void Remove(T entity)
+    public void Remove(TEntity entity) => HardDelete(entity);
+
+    public void RemoveRange(IEnumerable<TEntity> entities) => HardDeleteRange(entities);
+
+    // Pagination implementation
+    public async Task<PagedData<TEntity>> GetPagedAsync(
+        int skip,
+        int top,
+        bool includeCount = false,
+        string? orderBy = null,
+        bool descending = false,
+        CancellationToken ct = default)
     {
-        HardDelete(entity);
+        return await _resilientExecutor.ExecuteMongoDbAsync(async token =>
+        {
+            var filter = Builders<TDataModel>.Filter.Eq(e => e.Metadata.IsDeleted, false);
+
+            var query = _collection.Find(filter);
+            query = ApplyOrdering(query, orderBy, descending);
+
+            var items = await query
+                .Skip(skip)
+                .Limit(top)
+                .ToListAsync(token);
+
+            long totalCount = 0;
+            if (includeCount)
+            {
+                totalCount = await _collection.CountDocumentsAsync(filter, cancellationToken: token);
+            }
+
+            return new PagedData<TEntity>(
+                items.Select(ToDomain).ToList(),
+                totalCount);
+        }, ct);
     }
 
-    public void RemoveRange(IEnumerable<T> entities)
+    public async Task<PagedData<TEntity>> GetPagedAsync(
+        Expression<Func<TEntity, bool>> predicate,
+        int skip,
+        int top,
+        bool includeCount = false,
+        string? orderBy = null,
+        bool descending = false,
+        CancellationToken ct = default)
     {
-        HardDeleteRange(entities);
+        // For predicate-based pagination, we need to filter in memory after fetching
+        // This is a limitation of mapping between entity and data model
+        return await _resilientExecutor.ExecuteMongoDbAsync(async token =>
+        {
+            var filter = Builders<TDataModel>.Filter.Eq(e => e.Metadata.IsDeleted, false);
+            var allModels = await _collection.Find(filter).ToListAsync(token);
+
+            var allEntities = allModels.Select(ToDomain).ToList();
+            var filteredEntities = allEntities.Where(predicate.Compile()).ToList();
+
+            // Apply ordering if specified
+            if (!string.IsNullOrEmpty(orderBy))
+            {
+                filteredEntities = ApplyOrderingInMemory(filteredEntities, orderBy, descending);
+            }
+
+            var items = filteredEntities.Skip(skip).Take(top).ToList();
+            var totalCount = includeCount ? filteredEntities.Count : 0;
+
+            return new PagedData<TEntity>(items, totalCount);
+        }, ct);
     }
 
-    private async Task<int> GetNextIdAsync(CancellationToken ct)
+    /// <summary>
+    /// Apply ordering to a MongoDB query.
+    /// Default ordering is by Metadata.CreatedAt descending (newest first).
+    /// </summary>
+    protected virtual IFindFluent<TDataModel, TDataModel> ApplyOrdering(
+        IFindFluent<TDataModel, TDataModel> query,
+        string? orderBy,
+        bool descending)
     {
-        var lastEntity = await _collection.Find(_ => true).SortByDescending(e => e.Id).FirstOrDefaultAsync(ct);
-        return (lastEntity?.Id ?? 0) + 1;
+        // Default ordering by CreatedAt descending if no orderBy specified
+        if (string.IsNullOrEmpty(orderBy))
+        {
+            return query.SortByDescending(e => e.Metadata.CreatedAt);
+        }
+
+        // For now, support common orderings - subclasses can override for entity-specific fields
+        var normalizedOrderBy = orderBy.ToLowerInvariant();
+
+        return normalizedOrderBy switch
+        {
+            "createdat" => descending
+                ? query.SortByDescending(e => e.Metadata.CreatedAt)
+                : query.SortBy(e => e.Metadata.CreatedAt),
+            "updatedat" => descending
+                ? query.SortByDescending(e => e.Metadata.UpdatedAt)
+                : query.SortBy(e => e.Metadata.UpdatedAt),
+            "id" => descending
+                ? query.SortByDescending(e => e.Id)
+                : query.SortBy(e => e.Id),
+            _ => query.SortByDescending(e => e.Metadata.CreatedAt) // Fallback to default
+        };
+    }
+
+    /// <summary>
+    /// Apply ordering to an in-memory collection.
+    /// </summary>
+    protected virtual List<TEntity> ApplyOrderingInMemory(
+        List<TEntity> entities,
+        string orderBy,
+        bool descending)
+    {
+        var normalizedOrderBy = orderBy.ToLowerInvariant();
+
+        return normalizedOrderBy switch
+        {
+            "createdat" => descending
+                ? entities.OrderByDescending(e => e.CreatedAt).ToList()
+                : entities.OrderBy(e => e.CreatedAt).ToList(),
+            "updatedat" => descending
+                ? entities.OrderByDescending(e => e.UpdatedAt).ToList()
+                : entities.OrderBy(e => e.UpdatedAt).ToList(),
+            "id" => descending
+                ? entities.OrderByDescending(e => e.Id).ToList()
+                : entities.OrderBy(e => e.Id).ToList(),
+            _ => entities // Return as-is if unknown field
+        };
     }
 }
 

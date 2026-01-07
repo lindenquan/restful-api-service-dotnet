@@ -1,8 +1,8 @@
 using Application.Interfaces.Repositories;
 using Application.Orders.Operations;
 using Domain;
-using FluentAssertions;
 using Moq;
+using Shouldly;
 
 namespace Tests.Application.Orders;
 
@@ -11,6 +11,11 @@ namespace Tests.Application.Orders;
 /// </summary>
 public class CreateOrderHandlerTests
 {
+    private static readonly Guid PatientId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static readonly Guid PrescriptionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    private static readonly Guid CreatedById = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+    private static readonly Guid NonExistentId = Guid.Parse("99999999-9999-9999-9999-999999999999");
+
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IPatientRepository> _patientRepoMock;
     private readonly Mock<IPrescriptionRepository> _prescriptionRepoMock;
@@ -35,17 +40,17 @@ public class CreateOrderHandlerTests
     public async Task Handle_WithValidCommand_ShouldCreateOrderWithPendingStatus()
     {
         // Arrange
-        var patient = new Patient { Id = 1, FirstName = "John", LastName = "Doe", Email = "john@test.com" };
+        var patient = new Patient { Id = PatientId, FirstName = "John", LastName = "Doe", Email = "john@test.com" };
         var prescription = new Prescription
         {
-            Id = 1,
-            PatientId = 1,
+            Id = PrescriptionId,
+            PatientId = PatientId,
             MedicationName = "Aspirin",
             ExpiryDate = DateTime.UtcNow.AddDays(30)
         };
 
-        _patientRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(patient);
-        _prescriptionRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(prescription);
+        _patientRepoMock.Setup(r => r.GetByIdAsync(PatientId, It.IsAny<CancellationToken>())).ReturnsAsync(patient);
+        _prescriptionRepoMock.Setup(r => r.GetByIdAsync(PrescriptionId, It.IsAny<CancellationToken>())).ReturnsAsync(prescription);
 
         PrescriptionOrder? capturedOrder = null;
         _orderRepoMock
@@ -54,28 +59,28 @@ public class CreateOrderHandlerTests
             .Returns(Task.CompletedTask);
 
         _orderRepoMock
-            .Setup(r => r.GetByIdWithDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((int id, CancellationToken _) => new PrescriptionOrder
+            .Setup(r => r.GetByIdWithDetailsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, CancellationToken _) => new PrescriptionOrder
             {
                 Id = id,
-                PatientId = 1,
+                PatientId = PatientId,
                 Patient = patient,
-                PrescriptionId = 1,
+                PrescriptionId = PrescriptionId,
                 Prescription = prescription,
                 Status = OrderStatus.Pending,
                 OrderDate = DateTime.UtcNow
             });
 
-        var command = new CreateOrderCommand(PatientId: 1, PrescriptionId: 1, Notes: "Test notes", CreatedBy: "admin");
+        var command = new CreateOrderCommand(PatientId: PatientId, PrescriptionId: PrescriptionId, Notes: "Test notes", CreatedBy: CreatedById);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        capturedOrder.Should().NotBeNull();
-        capturedOrder!.Status.Should().Be(OrderStatus.Pending);
-        capturedOrder.Notes.Should().Be("Test notes");
-        capturedOrder.Metadata.CreatedBy.Should().Be("admin");
+        capturedOrder.ShouldNotBeNull();
+        capturedOrder!.Status.ShouldBe(OrderStatus.Pending);
+        capturedOrder.Notes.ShouldBe("Test notes");
+        capturedOrder.CreatedBy.ShouldBe(CreatedById);
 
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -84,60 +89,51 @@ public class CreateOrderHandlerTests
     public async Task Handle_WithNonExistentPatient_ShouldThrowArgumentException()
     {
         // Arrange
-        _patientRepoMock.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync((Patient?)null);
+        _patientRepoMock.Setup(r => r.GetByIdAsync(NonExistentId, It.IsAny<CancellationToken>())).ReturnsAsync((Patient?)null);
 
-        var command = new CreateOrderCommand(PatientId: 999, PrescriptionId: 1, Notes: null);
+        var command = new CreateOrderCommand(PatientId: NonExistentId, PrescriptionId: PrescriptionId, Notes: null);
 
-        // Act
-        var act = () => _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*Patient with ID 999 not found*");
+        // Act & Assert
+        var exception = await Should.ThrowAsync<ArgumentException>(() => _handler.Handle(command, CancellationToken.None));
+        exception.Message.ShouldContain($"Patient with ID {NonExistentId} not found");
     }
 
     [Fact]
     public async Task Handle_WithNonExistentPrescription_ShouldThrowArgumentException()
     {
         // Arrange
-        var patient = new Patient { Id = 1, FirstName = "John", LastName = "Doe" };
-        _patientRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(patient);
-        _prescriptionRepoMock.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync((Prescription?)null);
+        var patient = new Patient { Id = PatientId, FirstName = "John", LastName = "Doe" };
+        _patientRepoMock.Setup(r => r.GetByIdAsync(PatientId, It.IsAny<CancellationToken>())).ReturnsAsync(patient);
+        _prescriptionRepoMock.Setup(r => r.GetByIdAsync(NonExistentId, It.IsAny<CancellationToken>())).ReturnsAsync((Prescription?)null);
 
-        var command = new CreateOrderCommand(PatientId: 1, PrescriptionId: 999, Notes: null);
+        var command = new CreateOrderCommand(PatientId: PatientId, PrescriptionId: NonExistentId, Notes: null);
 
-        // Act
-        var act = () => _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*Prescription with ID 999 not found*");
+        // Act & Assert
+        var exception = await Should.ThrowAsync<ArgumentException>(() => _handler.Handle(command, CancellationToken.None));
+        exception.Message.ShouldContain($"Prescription with ID {NonExistentId} not found");
     }
 
     [Fact]
     public async Task Handle_WithExpiredPrescription_ShouldThrowInvalidOperationException()
     {
         // Arrange
-        var patient = new Patient { Id = 1, FirstName = "John", LastName = "Doe" };
+        var patient = new Patient { Id = PatientId, FirstName = "John", LastName = "Doe" };
         var expiredPrescription = new Prescription
         {
-            Id = 1,
-            PatientId = 1,
+            Id = PrescriptionId,
+            PatientId = PatientId,
             MedicationName = "Aspirin",
             ExpiryDate = DateTime.UtcNow.AddDays(-1) // Expired yesterday
         };
 
-        _patientRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(patient);
-        _prescriptionRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(expiredPrescription);
+        _patientRepoMock.Setup(r => r.GetByIdAsync(PatientId, It.IsAny<CancellationToken>())).ReturnsAsync(patient);
+        _prescriptionRepoMock.Setup(r => r.GetByIdAsync(PrescriptionId, It.IsAny<CancellationToken>())).ReturnsAsync(expiredPrescription);
 
-        var command = new CreateOrderCommand(PatientId: 1, PrescriptionId: 1, Notes: null);
+        var command = new CreateOrderCommand(PatientId: PatientId, PrescriptionId: PrescriptionId, Notes: null);
 
-        // Act
-        var act = () => _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*expired prescription*");
+        // Act & Assert
+        var exception = await Should.ThrowAsync<InvalidOperationException>(() => _handler.Handle(command, CancellationToken.None));
+        exception.Message.ShouldContain("expired prescription");
     }
 }
 

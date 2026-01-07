@@ -70,14 +70,14 @@ N-Layer doesn't prevent the UI from "knowing" about the Database. It's tempting 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Infrastructure Layer                      │
-│   (Database, External APIs, Email, Redis, File System)       │
+│                    Infrastructure Layer                     │
+│   (Database, External APIs, Email, Redis, File System)      │
 ├─────────────────────────────────────────────────────────────┤
-│                    Application Layer                         │
-│   (Use Cases, Commands, Queries, DTOs)                       │
+│                    Application Layer                        │
+│   (Use Cases, Commands, Queries, DTOs)                      │
 ├─────────────────────────────────────────────────────────────┤
-│                      Domain Layer                            │
-│   (Entities, Value Objects, Business Rules, Interfaces)      │
+│                      Domain Layer                           │
+│   (Entities, Value Objects, Business Rules, Interfaces)     │
 └─────────────────────────────────────────────────────────────┘
          ↑ Dependencies flow INWARD (toward Domain) ↑
 ```
@@ -114,7 +114,7 @@ N-Layer doesn't prevent the UI from "knowing" about the Database. It's tempting 
 │              │                                  │                       │
 │              └──────────depends on──────────────┘                       │
 │                                                                         │
-│   VOLATILE (infra) ────depends on────▶ STABLE (business) ✅             │
+│   VOLATILE (infra) ────depends on────▶ STABLE (business) ✅            │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -164,7 +164,7 @@ This code should be **protected from unnecessary changes** caused by:
 
 ```
 Application.csproj
-  └── References: Entities.csproj only
+  └── References: Domain.csproj only
   └── Packages: MediatR, FluentValidation (pure .NET, no infra)
   └── NO MongoDB.Driver ✅
   └── NO StackExchange.Redis ✅
@@ -252,7 +252,7 @@ While all SOLID principles apply, **DIP is the foundation** that makes Clean Arc
 
 This progression shows how to refactor from N-Layer to Clean Architecture by applying DIP correctly.
 
-### Stage 1: Traditional N-Layer (No Interfaces) ❌❌
+### Stage 1: Traditional N-Layer (No Interfaces) ❌
 
 **Problem:** Business layer directly instantiates and depends on concrete data access classes.
 
@@ -272,7 +272,7 @@ This progression shows how to refactor from N-Layer to Clean Architecture by app
 │   │  Business Logic Layer   │  ← High-level policy                      │
 │   │      OrderService       │                                           │
 │   │                         │                                           │
-│   │  new SqlOrderRepository() ← Direct instantiation! ❌                │
+│   │  new SqlOrderRepository() ← Direct instantiation! ❌ 　　　         │
 │   └───────────┬─────────────┘                                           │
 │               │ depends on (concrete)                                   │
 │               ▼                                                         │
@@ -287,10 +287,10 @@ This progression shows how to refactor from N-Layer to Clean Architecture by app
 │   └─────────────────────────┘                                           │
 │                                                                         │
 │   VIOLATIONS:                                                           │
-│   ❌ BLL depends on concrete SqlOrderRepository                         │
-│   ❌ Cannot swap to MongoDB without rewriting BLL                       │
-│   ❌ Cannot unit test BLL without real database                         │
-│   ❌ High-level enslaved to low-level                                   │
+│   ❌ BLL depends on concrete SqlOrderRepository       　　　            │
+│   ❌ Cannot swap to MongoDB without rewriting BLL                　　　 │
+│   ❌ Cannot unit test BLL without real database         　　　          │
+│   ❌ High-level enslaved to low-level            　　　                 │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -354,14 +354,14 @@ namespace BusinessLogic
 │   │  Business Logic Layer   │  ← High-level policy                      │
 │   │      OrderService       │                                           │
 │   │                         │                                           │
-│   │  IOrderRepository repo  │  ← Uses interface ✅                      │
+│   │  IOrderRepository repo  │  ← Uses interface ✅        　　　        │
 │   └───────────┬─────────────┘                                           │
 │               │ depends on interface                                    │
 │               ▼                                                         │
 │   ┌─────────────────────────┐                                           │
 │   │   Data Access Layer     │  ← Low-level detail                       │
 │   │  ┌───────────────────┐  │                                           │
-│   │  │ IOrderRepository  │  │  ← Interface lives HERE ❌                │
+│   │  │ IOrderRepository  │  │  ← Interface lives HERE ❌   　　　       │
 │   │  └───────────────────┘  │    (low-level owns the contract)          │
 │   │  ┌───────────────────┐  │                                           │
 │   │  │SqlOrderRepository │  │  ← Implements interface                   │
@@ -374,14 +374,14 @@ namespace BusinessLogic
 │   └─────────────────────────┘                                           │
 │                                                                         │
 │   WHAT'S FIXED:                                                         │
-│   ✅ BLL depends on abstraction (IOrderRepository)                      │
-│   ✅ Can inject mock for testing                                        │
+│   ✅ BLL depends on abstraction (IOrderRepository)   　　　             │
+│   ✅ Can inject mock for testing                               　　　   │
 │                                                                         │
 │   WHAT'S STILL WRONG:                                                   │
-│   ❌ BLL project must REFERENCE DAL project (to get interface)          │
-│   ❌ Low-level layer DEFINES what high-level layer can do               │
-│   ❌ Interface is "contaminated" with DAL concerns                      │
-│   ❌ Dependency arrow still points DOWN: BLL → DAL                      │
+│   ❌ BLL project must REFERENCE DAL project (to get interface)　　　    │
+│   ❌ Low-level layer DEFINES what high-level layer can do  　　　       │
+│   ❌ Interface is "contaminated" with DAL concerns　　　                │
+│   ❌ Dependency arrow still points DOWN: BLL → DAL      　　　          │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -460,7 +460,7 @@ BusinessLogic.csproj
 │   ┌─────────────────────────┐                                           │
 │   │   Application Layer     │  ← Inner layer (high-level policy)        │
 │   │  ┌───────────────────┐  │                                           │
-│   │  │ IOrderRepository  │  │  ← Interface lives HERE ✅                │
+│   │  │ IOrderRepository  │  │  ← Interface lives HERE ✅ 　　　         │
 │   │  └───────────────────┘  │    (high-level owns the contract)         │
 │   │  ┌───────────────────┐  │                                           │
 │   │  │CreateOrderHandler │  │  ← Uses interface                         │
@@ -474,16 +474,16 @@ BusinessLogic.csproj
 │   └─────────────────────────┘                                           │
 │                                                                         │
 │   THE INVERSION:                                                        │
-│   ✅ Application layer DEFINES IOrderRepository                         │
-│   ✅ Infrastructure layer IMPLEMENTS IOrderRepository                   │
-│   ✅ Infrastructure DEPENDS ON Application (not the other way!)         │
-│   ✅ Dependency arrow points INWARD: Infra → App → Domain               │
+│   ✅ Application layer DEFINES IOrderRepository    　　　               │
+│   ✅ Infrastructure layer IMPLEMENTS IOrderRepository    　　　         │
+│   ✅ Infrastructure DEPENDS ON Application (not the other way!)　　　   │
+│   ✅ Dependency arrow points INWARD: Infra → App → Domain　　　         │
 │                                                                         │
 │   BENEFITS:                                                             │
-│   ✅ Swap Mongo → SQL by changing only Infrastructure                   │
-│   ✅ Application has ZERO knowledge of database technology              │
-│   ✅ Test with InMemoryOrderRepository (no mocks needed)                │
-│   ✅ Business logic controls what it needs, not what DAL offers         │
+│   ✅ Swap Mongo → SQL by changing only Infrastructure   　　　          │
+│   ✅ Application has ZERO knowledge of database technology　　　        │
+│   ✅ Test with InMemoryOrderRepository (no mocks needed)　　　          │
+│   ✅ Business logic controls what it needs, not what DAL offers　　　   │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -537,11 +537,11 @@ namespace Infrastructure.Persistence
 **Project References (INVERTED!):**
 ```
 Application.csproj
-  └── <ProjectReference Include="Entities.csproj" />  ✅ Only depends on Domain
+  └── <ProjectReference Include="Domain.csproj" />  ✅ Only depends on Domain
 
 Infrastructure.csproj  (was "DataAccess")
   └── <ProjectReference Include="Application.csproj" />  ✅ Depends on Application!
-  └── <ProjectReference Include="Entities.csproj" />
+  └── <ProjectReference Include="Domain.csproj" />
 ```
 
 ---
@@ -595,13 +595,13 @@ In your project, you can see DIP in action:
 ```
 src/
 ├── Domain/              ← Domain (no dependencies)
-├── Application/           ← Defines IOrderRepository, uses Entities
-│   └── <ProjectReference Include="Entities.csproj" />
+├── Application/           ← Defines IOrderRepository, uses Domain
+│   └── <ProjectReference Include="Domain.csproj" />
 ├── DTOs/                  ← Data transfer objects
-│   └── <ProjectReference Include="Entities.csproj" />
+│   └── <ProjectReference Include="Domain.csproj" />
 └── Infrastructure/              ← IMPLEMENTS interfaces from Application
     └── <ProjectReference Include="Application.csproj" />  ✅ INVERTED!
-    └── <ProjectReference Include="Entities.csproj" />
+    └── <ProjectReference Include="Domain.csproj" />
     └── <ProjectReference Include="DTOs.csproj" />
 ```
 
@@ -770,11 +770,11 @@ If the team doesn't understand the principles, they'll fight the architecture an
 **Our project does it correctly:**
 ```
 Application.csproj
-  └── References: Entities.csproj only ✅ (no infrastructure dependencies)
+  └── References: Domain.csproj only ✅ (no infrastructure dependencies)
 
 Infrastructure.csproj
   └── References: Application.csproj ✅ (implements interfaces from Application)
-  └── References: Entities.csproj
+  └── References: Domain.csproj
   └── References: DTOs.csproj
 ```
 

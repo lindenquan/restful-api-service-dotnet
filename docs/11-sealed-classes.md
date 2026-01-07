@@ -63,12 +63,12 @@ Prevents malicious or unintended inheritance that could bypass business logic or
 
 ## Sealed Classes in This Project
 
-### **MediatR Handlers** (11 classes)
+### **MediatR Handlers** (15 classes)
 
 All handlers are sealed for performance:
 
 ```csharp
-public sealed class CreateOrderHandler : IRequestHandler<CreateOrderCommand, InternalOrderDto>
+public sealed class CreateOrderHandler : IRequestHandler<CreateOrderCommand, PrescriptionOrder>
 {
     // ...
 }
@@ -83,11 +83,15 @@ public sealed class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Int
 - `src/Application/Orders/Operations/GetOrdersByStatus.cs`
 - `src/Application/Orders/Operations/GetOrdersByUser.cs`
 - `src/Application/Orders/Operations/CancelOrder.cs`
+- `src/Application/Patients/Operations/CreatePatient.cs`
+- `src/Application/Patients/Operations/GetPatientById.cs`
+- `src/Application/Patients/Operations/GetAllPatients.cs`
 - `src/Application/Prescriptions/Operations/CreatePrescription.cs`
 - `src/Application/Prescriptions/Operations/GetPrescriptionById.cs`
-- `src/Application/ApiKeys/Operations/CreateApiKeyUser.cs`
+- `src/Application/Prescriptions/Operations/GetAllPrescriptions.cs`
+- `src/Application/Users/Operations/CreateApiKeyUser.cs`
 
-### **FluentValidation Validators** (4 classes)
+### **FluentValidation Validators** (5 classes)
 
 ```csharp
 public sealed class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
@@ -99,8 +103,9 @@ public sealed class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
 **Files:**
 - `src/Application/Orders/Operations/CreateOrderValidator.cs`
 - `src/Application/Orders/Operations/UpdateOrderStatusValidator.cs`
+- `src/Application/Patients/Operations/CreatePatientValidator.cs`
 - `src/Application/Prescriptions/Operations/CreatePrescriptionValidator.cs`
-- `src/Application/ApiKeys/Operations/CreateApiKeyUser.cs` (CreateApiKeyUserCommandValidator)
+- `src/Application/Users/Operations/CreateApiKeyUser.cs` (CreateApiKeyUserCommandValidator)
 
 ### **Pipeline Behaviors** (3 classes)
 
@@ -170,24 +175,24 @@ public sealed class MongoUserRepository : MongoRepository<User>, IUserRepository
 
 | Class Type | Count | Performance Gain | Impact |
 |------------|-------|------------------|--------|
-| Handlers | 11 | High (hot path) | 5-15% |
-| Validators | 4 | Medium | 3-8% |
+| Handlers | 15 | High (hot path) | 5-15% |
+| Validators | 5 | Medium | 3-8% |
 | Behaviors | 3 | High (every request) | 5-15% |
 | Services | 5 | Medium | 3-8% |
 | Repositories | 5 | Low | 1-3% |
 
-**Total:** ~28 sealed classes
+**Total:** ~33 sealed classes
 
 ---
 
 ## Summary
 
-- ✅ **28 classes sealed** for performance and design intent
+- ✅ **33 classes sealed** for performance and design intent
 - ✅ **All handlers, validators, and behaviors** are sealed
 - ✅ **All service and repository implementations** are sealed
 - ✅ **Base classes remain unsealed** for inheritance
 - ✅ **5-15% performance gain** on hot paths
 
-> *"Seal your classes by default. Only leave them unsealed if you have a specific reason for inheritance."*  
+> *"Seal your classes by default. Only leave them unsealed if you have a specific reason for inheritance."*
 > — Microsoft .NET Performance Best Practices
 

@@ -1,8 +1,8 @@
+using Application.Interfaces.Repositories;
+using Application.Interfaces.Services;
 using Infrastructure.Persistence.Configuration;
 using Infrastructure.Persistence.Repositories;
 using Infrastructure.Persistence.Security;
-using Application.Interfaces.Repositories;
-using Application.Interfaces.Services;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
@@ -82,6 +82,10 @@ public static class DependencyInjection
 
             // Configure DateTime serialization to use UTC
             BsonSerializer.RegisterSerializer(new DateTimeSerializer(DateTimeKind.Utc));
+
+            // Configure Guid serialization to use Standard representation (RFC 4122 binary format)
+            // This is required for UUID v7 Guids to be stored and retrieved correctly
+            BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
 
             _bsonConfigured = true;
         }

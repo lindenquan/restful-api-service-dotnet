@@ -20,6 +20,7 @@
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.Resilience" Version="10.1.0" />
+    <PackageReference Include="Riok.Mapperly" Version="4.3.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
 
     <!-- Persistence packages -->

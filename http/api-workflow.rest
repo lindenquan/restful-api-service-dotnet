@@ -1,0 +1,286 @@
+###############################################################################
+# API Workflow Test Suite
+# =============================================================================
+# This file contains a complete workflow for testing the Prescription Order API.
+# It demonstrates the full lifecycle: Patient -> Prescription -> Order
+#
+# Prerequisites:
+# 1. Install REST Client extension (humao.rest-client) in VS Code
+# 2. Copy .env.example to .env and configure API_BASE_URL and API key
+# 3. Ensure the API service is running (./build.ps1 docker-up-api)
+#
+# Usage:
+# - Click "Send Request" above each request to run individually
+# - Run requests in order: createPatient -> createPrescription -> createOrder
+# - Subsequent requests use IDs from previous responses automatically
+#
+###############################################################################
+
+###############################################################################
+# VARIABLES
+# =============================================================================
+# Variables are loaded from .env file using $dotenv syntax
+###############################################################################
+@apiKey = {{$dotenv RootAdmin__InitialApiKey}}
+@baseUrl = {{$dotenv API_BASE_URL}}
+@apiVersion = 1
+
+### ==========================================================================
+### HEALTH CHECK
+### ==========================================================================
+### Verify the API is running and healthy
+### Expected: 200 OK with status "Healthy"
+
+# @name healthCheck
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+### ==========================================================================
+### SECTION 1: PATIENTS (Requires Authentication)
+### ==========================================================================
+### Patients are the foundation - we need a patient before creating
+### prescriptions or orders.
+
+### --------------------------------------------------------------------------
+### 1.1 Create a New Patient
+### --------------------------------------------------------------------------
+### Creates a new patient in the system.
+### Note: Email must be unique - change it if you get a duplicate error.
+### Expected: 201 Created with patient details
+### The response ID is automatically captured into {{patientId}} for subsequent requests.
+
+# @name createPatient
+POST {{baseUrl}}/api/v{{apiVersion}}/patients
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "firstName": "John",
+  "lastName": "Smith",
+  "email": "john.smith.{{$timestamp}}@example.com",
+  "phone": "555-0123",
+  "dateOfBirth": "1985-03-15"
+}
+
+### --------------------------------------------------------------------------
+### 1.2 Get Patient by ID
+### --------------------------------------------------------------------------
+### Retrieves a specific patient by their ID.
+### Uses the patientId automatically captured from the create response above.
+### Expected: 200 OK with patient details, or 404 if not found
+
+GET {{baseUrl}}/api/v{{apiVersion}}/patients/{{createPatient.response.body.id}}
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 1.3 Get All Patients
+### --------------------------------------------------------------------------
+### Retrieves all patients in the system.
+### Expected: 200 OK with array of patients
+
+GET {{baseUrl}}/api/v{{apiVersion}}/patients
+X-API-Key: {{apiKey}}
+
+### ==========================================================================
+### SECTION 2: PRESCRIPTIONS (Requires Authentication)
+### ==========================================================================
+### Prescriptions are created for a patient and can then be ordered.
+### A prescription must exist and not be expired to create an order.
+
+### --------------------------------------------------------------------------
+### 2.1 Create a New Prescription
+### --------------------------------------------------------------------------
+### Creates a prescription for a patient.
+### Requires: Valid patientId (UUID) - uses the ID captured from patient creation
+### Expected: 201 Created with prescription details
+### The response ID is automatically captured into {{prescriptionId}} for subsequent requests.
+
+# @name createPrescription
+POST {{baseUrl}}/api/v{{apiVersion}}/prescriptions
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "patientId": "{{createPatient.response.body.id}}",
+  "medicationName": "Amoxicillin",
+  "dosage": "500mg",
+  "frequency": "Three times daily",
+  "quantity": 30,
+  "refillsAllowed": 3,
+  "prescriberName": "Dr. Jane Wilson",
+  "expiryDate": "2027-01-01",
+  "instructions": "Take with food. Complete the full course."
+}
+
+### --------------------------------------------------------------------------
+### 2.2 Get Prescription by ID
+### --------------------------------------------------------------------------
+### Retrieves a specific prescription by ID.
+### Uses the prescriptionId automatically captured from the create response above.
+### Expected: 200 OK with prescription details, or 404 if not found
+
+GET {{baseUrl}}/api/v{{apiVersion}}/prescriptions/{{createPrescription.response.body.id}}
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 2.3 Get All Prescriptions
+### --------------------------------------------------------------------------
+### Retrieves all prescriptions in the system.
+### Requires: API Key
+### Expected: 200 OK with array of prescriptions
+
+GET {{baseUrl}}/api/v{{apiVersion}}/prescriptions
+X-API-Key: {{apiKey}}
+
+### ==========================================================================
+### SECTION 3: ORDERS (V1 API - Requires Authentication)
+### ==========================================================================
+### Orders are created from prescriptions. They track the fulfillment
+### of a prescription for a patient.
+### NOTE: These endpoints require API Key authentication!
+
+### --------------------------------------------------------------------------
+### 3.1 Create a New Order
+### --------------------------------------------------------------------------
+### Creates an order for a prescription.
+### Uses patientId and prescriptionId automatically captured from previous create requests.
+### Expected: 201 Created with order details (status: "Pending")
+### The response ID is automatically captured into {{orderId}} for subsequent requests.
+
+# @name createOrder
+POST {{baseUrl}}/api/v{{apiVersion}}/orders
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "patientId": "{{createPatient.response.body.id}}",
+  "prescriptionId": "{{createPrescription.response.body.id}}",
+  "notes": "Please deliver to front desk"
+}
+
+### --------------------------------------------------------------------------
+### 3.2 Get Order by ID
+### --------------------------------------------------------------------------
+### Retrieves a specific order by ID.
+### Uses the orderId automatically captured from the create response above.
+### Expected: 200 OK with order details, or 404 if not found
+
+# @name getOrderById
+GET {{baseUrl}}/api/v{{apiVersion}}/orders/{{createOrder.response.body.id}}
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 3.3 Get All Orders
+### --------------------------------------------------------------------------
+### Retrieves all orders in the system.
+### Requires: API Key
+### Expected: 200 OK with array of orders
+
+GET {{baseUrl}}/api/v{{apiVersion}}/orders
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 3.4 Get Orders by Patient
+### --------------------------------------------------------------------------
+### Retrieves all orders for a specific patient.
+### Requires: API Key
+### Expected: 200 OK with array of orders for the patient
+
+GET {{baseUrl}}/api/v{{apiVersion}}/orders/patient/{{createPatient.response.body.id}}
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 3.5 Update Order Status
+### --------------------------------------------------------------------------
+### Updates the status of an order.
+### Valid statuses: Pending, Processing, Shipped, Delivered, Cancelled
+### Requires: API Key (Admin)
+### Expected: 200 OK with updated order details
+
+PUT {{baseUrl}}/api/v{{apiVersion}}/orders/{{createOrder.response.body.id}}
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "status": "Processing"
+}
+
+### --------------------------------------------------------------------------
+### 3.6 Delete Order (Soft Delete)
+### --------------------------------------------------------------------------
+### Soft deletes an order (marks as deleted but keeps in database).
+### Requires: API Key
+### Expected: 204 No Content
+
+DELETE {{baseUrl}}/api/v{{apiVersion}}/orders/{{createOrder.response.body.id}}
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 3.7 Delete Order (Hard Delete - Admin Only)
+### --------------------------------------------------------------------------
+### Permanently deletes an order from the database.
+### Requires: API Key (Admin), ?permanent=true
+### Expected: 204 No Content
+
+DELETE {{baseUrl}}/api/v{{apiVersion}}/orders/{{createOrder.response.body.id}}?permanent=true
+X-API-Key: {{apiKey}}
+
+### ==========================================================================
+### SECTION 4: ERROR SCENARIOS
+### ==========================================================================
+### Test various error cases to verify API behavior.
+
+### --------------------------------------------------------------------------
+### 4.1 Get Non-Existent Patient
+### --------------------------------------------------------------------------
+### Expected: 404 Not Found
+
+GET {{baseUrl}}/api/v{{apiVersion}}/patients/00000000-0000-0000-0000-000000099999
+X-API-Key: {{apiKey}}
+
+### --------------------------------------------------------------------------
+### 4.2 Create Patient with Invalid Email
+### --------------------------------------------------------------------------
+### Expected: 400 Bad Request with validation errors
+
+POST {{baseUrl}}/api/v{{apiVersion}}/patients
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "firstName": "Invalid",
+  "lastName": "Email",
+  "email": "not-a-valid-email",
+  "phone": null,
+  "dateOfBirth": "1990-01-01"
+}
+
+### --------------------------------------------------------------------------
+### 4.3 Create Order Without API Key
+### --------------------------------------------------------------------------
+### Expected: 401 Unauthorized
+
+POST {{baseUrl}}/api/v{{apiVersion}}/orders
+Content-Type: application/json
+
+{
+  "patientId": "00000000-0000-0000-0000-000000000001",
+  "prescriptionId": "00000000-0000-0000-0000-000000000001",
+  "notes": "This should fail - no API key"
+}
+
+### --------------------------------------------------------------------------
+### 4.4 Create Order with Invalid Prescription
+### --------------------------------------------------------------------------
+### Expected: 400 Bad Request or 404 Not Found
+
+POST {{baseUrl}}/api/v{{apiVersion}}/orders
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "patientId": "00000000-0000-0000-0000-000000000001",
+  "prescriptionId": "00000000-0000-0000-0000-000000099999",
+  "notes": "This should fail - prescription doesn't exist"
+}
+

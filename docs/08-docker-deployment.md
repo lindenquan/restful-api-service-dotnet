@@ -7,7 +7,7 @@ The project includes Docker configuration for:
 | File | Purpose |
 |------|---------|
 | `docker-compose.yml` | Local development and E2E testing |
-| `src/Infrastructure/Api/Dockerfile` | API container image |
+| `Dockerfile` | API container image |
 | `Dockerfile.lambda` | AWS Lambda deployment image |
 | `Dockerfile.eks` | AWS EKS deployment image |
 
@@ -17,13 +17,13 @@ The project includes Docker configuration for:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    docker-compose.yml                        │
+│                    docker-compose.yml                       │
 ├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐              │
-│  │  MongoDB │    │   Redis  │    │   API    │              │
-│  │  :27017  │◄───│  :6379   │◄───│  :8080   │              │
-│  └──────────┘    └──────────┘    └──────────┘              │
+│                                                             │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐               │
+│  │  MongoDB │    │   Redis  │    │   API    │               │
+│  │  :27017  │◄───│  :6379   │◄───│  :8080   │               │
+│  └──────────┘    └──────────┘    └──────────┘               │
 │        ▲                               │                    │
 │        │         ┌──────────┐          │                    │
 │        └─────────│Migrations│◄─────────┘                    │

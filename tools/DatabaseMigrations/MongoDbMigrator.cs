@@ -82,7 +82,7 @@ public class MongoDbMigrator
 
         // Prescriptions collection indexes
         await CreateIndexAsync("prescriptions", "patientId");
-        await CreateIndexAsync("prescriptions", "prescriptionNumber", unique: true);
+        await CreateIndexAsync("prescriptions", "prescriptionNumber", unique: true, sparse: true);
         await CreateIndexAsync("prescriptions", "metadata.isDeleted");
 
         // Orders collection indexes
@@ -96,13 +96,14 @@ public class MongoDbMigrator
         await CreateIndexAsync("migrationHistory", "version", unique: true);
     }
 
-    private async Task CreateIndexAsync(string collectionName, string fieldName, bool unique = false)
+    private async Task CreateIndexAsync(string collectionName, string fieldName, bool unique = false, bool sparse = false)
     {
         var collection = _database.GetCollection<BsonDocument>(collectionName);
         var indexKeys = Builders<BsonDocument>.IndexKeys.Ascending(fieldName);
         var indexOptions = new CreateIndexOptions
         {
             Unique = unique,
+            Sparse = sparse,
             Background = true,
             Name = $"idx_{fieldName}"
         };

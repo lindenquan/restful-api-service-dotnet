@@ -1,0 +1,135 @@
+# Kubernetes Deployment for Prescription Order API
+# 
+# This configuration includes:
+# - terminationGracePeriodSeconds: 60 (matches GracefulShutdown:ShutdownTimeoutSeconds + buffer)
+# - Liveness and Readiness probes
+# - Resource limits
+# - Security context (non-root)
+#
+# Deploy: kubectl apply -f k8s/deployment.yaml
+# 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prescription-api
+  labels:
+    app: prescription-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: prescription-api
+  template:
+    metadata:
+      labels:
+        app: prescription-api
+    spec:
+      # CRITICAL: Must be >= GracefulShutdown:ShutdownTimeoutSeconds (55s) + buffer
+      # Sequence: SIGTERM → wait 60s → SIGKILL
+      terminationGracePeriodSeconds: 60
+      
+      # Security: Run as non-root user
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      
+      containers:
+        - name: api
+          image: prescription-api:latest
+          imagePullPolicy: IfNotPresent
+          
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          
+          # Environment configuration
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "prod"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            
+            # GC settings for container environment
+            - name: DOTNET_GCHeapHardLimitPercent
+              value: "4B"  # 75% of container memory
+            - name: DOTNET_gcServer
+              value: "1"
+            - name: DOTNET_gcConcurrent
+              value: "1"
+            
+            # MongoDB connection (use secrets in production)
+            - name: MongoDB__ConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: prescription-api-secrets
+                  key: mongodb-connection-string
+            
+            # Redis connection
+            - name: Cache__L2__ConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: prescription-api-secrets
+                  key: redis-connection-string
+            - name: Cache__L2__Enabled
+              value: "true"
+            
+            # Root admin API key (required for first setup)
+            - name: RootAdmin__InitialApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: prescription-api-secrets
+                  key: root-admin-api-key
+          
+          # Resource limits
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          
+          # Readiness probe: Pod is ready to receive traffic
+          # Kubernetes removes pod from Service when this fails
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          
+          # Liveness probe: Pod is alive and should not be restarted
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # Security context for container
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prescription-api
+spec:
+  selector:
+    app: prescription-api
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  type: ClusterIP
+

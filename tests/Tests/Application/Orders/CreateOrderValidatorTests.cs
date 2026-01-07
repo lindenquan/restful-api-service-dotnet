@@ -8,13 +8,16 @@ namespace Tests.Application.Orders;
 /// </summary>
 public class CreateOrderValidatorTests
 {
+    private static readonly Guid ValidPatientId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    private static readonly Guid ValidPrescriptionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
     private readonly CreateOrderValidator _validator = new();
 
     [Fact]
     public void Validate_ValidCommand_ShouldNotHaveErrors()
     {
         // Arrange
-        var command = new CreateOrderCommand(PatientId: 1, PrescriptionId: 1, Notes: "Valid notes");
+        var command = new CreateOrderCommand(PatientId: ValidPatientId, PrescriptionId: ValidPrescriptionId, Notes: "Valid notes");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -23,38 +26,32 @@ public class CreateOrderValidatorTests
         result.ShouldNotHaveAnyValidationErrors();
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(-100)]
-    public void Validate_InvalidPatientId_ShouldHaveError(int patientId)
+    [Fact]
+    public void Validate_EmptyPatientId_ShouldHaveError()
     {
         // Arrange
-        var command = new CreateOrderCommand(PatientId: patientId, PrescriptionId: 1, Notes: null);
+        var command = new CreateOrderCommand(PatientId: Guid.Empty, PrescriptionId: ValidPrescriptionId, Notes: null);
 
         // Act
         var result = _validator.TestValidate(command);
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.PatientId)
-            .WithErrorMessage("PatientId must be a positive number");
+            .WithErrorMessage("PatientId is required");
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(-100)]
-    public void Validate_InvalidPrescriptionId_ShouldHaveError(int prescriptionId)
+    [Fact]
+    public void Validate_EmptyPrescriptionId_ShouldHaveError()
     {
         // Arrange
-        var command = new CreateOrderCommand(PatientId: 1, PrescriptionId: prescriptionId, Notes: null);
+        var command = new CreateOrderCommand(PatientId: ValidPatientId, PrescriptionId: Guid.Empty, Notes: null);
 
         // Act
         var result = _validator.TestValidate(command);
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.PrescriptionId)
-            .WithErrorMessage("PrescriptionId must be a positive number");
+            .WithErrorMessage("PrescriptionId is required");
     }
 
     [Fact]
@@ -62,7 +59,7 @@ public class CreateOrderValidatorTests
     {
         // Arrange
         var longNotes = new string('a', 501);
-        var command = new CreateOrderCommand(PatientId: 1, PrescriptionId: 1, Notes: longNotes);
+        var command = new CreateOrderCommand(PatientId: ValidPatientId, PrescriptionId: ValidPrescriptionId, Notes: longNotes);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -79,7 +76,7 @@ public class CreateOrderValidatorTests
     public void Validate_ValidNotes_ShouldNotHaveError(string? notes)
     {
         // Arrange
-        var command = new CreateOrderCommand(PatientId: 1, PrescriptionId: 1, Notes: notes);
+        var command = new CreateOrderCommand(PatientId: ValidPatientId, PrescriptionId: ValidPrescriptionId, Notes: notes);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -93,7 +90,7 @@ public class CreateOrderValidatorTests
     {
         // Arrange
         var notes = new string('a', 500);
-        var command = new CreateOrderCommand(PatientId: 1, PrescriptionId: 1, Notes: notes);
+        var command = new CreateOrderCommand(PatientId: ValidPatientId, PrescriptionId: ValidPrescriptionId, Notes: notes);
 
         // Act
         var result = _validator.TestValidate(command);

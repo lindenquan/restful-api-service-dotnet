@@ -95,7 +95,7 @@ The key insight: **E2E tests are environment-agnostic**. They just need an API t
 │ └──────────────┘                                            │
 │        ↓                                                     │
 │ ┌──────────────┐                                            │
-│ │   Browser    │ → Makes API calls to localhost:5000        │
+│ │   Browser    │ → Makes API calls to localhost:8080        │
 │ └──────────────┘                                            │
 └─────────────────────────────────────────────────────────────┘
          ↓
@@ -112,7 +112,7 @@ The key insight: **E2E tests are environment-agnostic**. They just need an API t
 
 ### For Local Environment
 - ✅ Docker installed and running
-- ✅ Ports available: 27017 (MongoDB), 6379 (Redis), 5000 (API)
+- ✅ Ports available: 27017 (MongoDB), 6379 (Redis), 8080 (API)
 
 ### For Other Environments
 - ✅ Network access to dev/stage/prod servers
@@ -247,7 +247,7 @@ $env:ASPNETCORE_ENVIRONMENT="local"; dotnet test tests/Tests.Api.E2E --verbosity
 
 ### "API is not accessible"
 - Check Docker is running: `docker ps`
-- Check ports: `netstat -an | findstr "27017 6379 5000"`
+- Check ports: `netstat -an | findstr "27017 6379 8080"`
 - Restart Docker: `./build.ps1 docker-down; ./build.ps1 docker-up-api`
 
 ### "Connection refused" (MongoDB/Redis)

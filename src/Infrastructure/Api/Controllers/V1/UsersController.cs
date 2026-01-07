@@ -1,8 +1,8 @@
-using Infrastructure.Api.Authorization;
-using Infrastructure.Api.Services;
 using Application.Users.Operations;
 using Asp.Versioning;
 using DTOs.Shared;
+using Infrastructure.Api.Authorization;
+using Infrastructure.Api.Services;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -46,7 +46,7 @@ public class UsersController : ControllerBase
             Email: request.Email,
             UserType: request.UserType,
             Description: request.Description,
-            CreatedBy: _currentUser.UserName ?? _currentUser.UserId?.ToString());
+            CreatedBy: _currentUser.UserId);
 
         try
         {

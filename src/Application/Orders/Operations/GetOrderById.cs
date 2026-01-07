@@ -1,20 +1,20 @@
 using Application.Interfaces.Repositories;
-using Application.Orders.Shared;
+using Domain;
 using MediatR;
 
 namespace Application.Orders.Operations;
 
 /// <summary>
 /// Query to get a prescription order by ID.
-/// Uses internal DTO - controllers map to/from versioned DTOs.
+/// Controllers map to/from versioned DTOs.
 /// </summary>
-public record GetOrderByIdQuery(int OrderId) : IRequest<InternalOrderDto?>;
+public record GetOrderByIdQuery(Guid OrderId) : IRequest<PrescriptionOrder?>;
 
 /// <summary>
 /// Handler for GetOrderByIdQuery.
 /// Sealed for performance optimization and design intent.
 /// </summary>
-public sealed class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, InternalOrderDto?>
+public sealed class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, PrescriptionOrder?>
 {
     private readonly IUnitOfWork _unitOfWork;
 
@@ -23,10 +23,9 @@ public sealed class GetOrderByIdHandler : IRequestHandler<GetOrderByIdQuery, Int
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<InternalOrderDto?> Handle(GetOrderByIdQuery request, CancellationToken ct)
+    public async Task<PrescriptionOrder?> Handle(GetOrderByIdQuery request, CancellationToken ct)
     {
-        var order = await _unitOfWork.PrescriptionOrders.GetByIdWithDetailsAsync(request.OrderId, ct);
-        return order == null ? null : EntityToInternalDto.Map(order);
+        return await _unitOfWork.PrescriptionOrders.GetByIdWithDetailsAsync(request.OrderId, ct);
     }
 }
 

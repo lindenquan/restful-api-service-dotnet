@@ -8,7 +8,7 @@ namespace Application.Interfaces.Repositories;
 public interface IPatientRepository : IRepository<Patient>
 {
     Task<Patient?> GetByEmailAsync(string email, CancellationToken ct = default);
-    Task<Patient?> GetByIdWithPrescriptionsAsync(int id, CancellationToken ct = default);
-    Task<Patient?> GetByIdWithOrdersAsync(int id, CancellationToken ct = default);
+    Task<Patient?> GetByIdWithPrescriptionsAsync(Guid id, CancellationToken ct = default);
+    Task<Patient?> GetByIdWithOrdersAsync(Guid id, CancellationToken ct = default);
 }
 

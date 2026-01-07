@@ -15,15 +15,15 @@ This API uses **API Key authentication** with two user types:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Client Request                          │
-│                 Header: X-API-Key: abc123                    │
+│                      Client Request                         │
+│                 Header: X-API-Key: abc123                   │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              ApiKeyAuthenticationHandler                     │
-│  1. Extract X-API-Key header                                 │
-│  2. Hash the key with SHA-256                                │
+│              ApiKeyAuthenticationHandler                    │
+│  1. Extract X-API-Key header                                │
+│  2. Hash the key with SHA-256                               │
 │  3. Look up hash in database (ApiKeyUser table)             │
 │  4. If found → Create ClaimsPrincipal with user info        │
 │  5. If not found → Return 401 Unauthorized                  │
@@ -31,8 +31,8 @@ This API uses **API Key authentication** with two user types:
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  Authorization Policies                      │
-│  Check user claims against required policy                   │
+│                  Authorization Policies                     │
+│  Check user claims against required policy                  │
 │  • RequireAdmin → UserType must be "Admin"                  │
 │  • RequireRegularUser → UserType must be "Regular"          │
 └─────────────────────────────────────────────────────────────┘
@@ -58,14 +58,32 @@ public class ApiKeyUser : BaseEntity
 ### Hashing Implementation
 
 ```csharp
-// Infrastructure/Security/ApiKeyHasher.cs
-public class ApiKeyHasher : IApiKeyHasher
+// Infrastructure/Persistence/Security/ApiKeyHasher.cs
+public static class ApiKeyHasher
 {
-    public string Hash(string apiKey)
+    public static string HashApiKey(string apiKey)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(apiKey));
-        return Convert.ToBase64String(bytes);
+        var bytes = Encoding.UTF8.GetBytes(apiKey);
+        var hashBytes = SHA256.HashData(bytes);
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
+
+    public static bool ValidateApiKey(string apiKey, string storedHash)
+    {
+        var computedHash = HashApiKey(apiKey);
+        // Use constant-time comparison to prevent timing attacks
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(computedHash),
+            Encoding.UTF8.GetBytes(storedHash));
+    }
+}
+
+// Injectable service implementing IApiKeyGenerator
+public class ApiKeyGeneratorService : IApiKeyGenerator
+{
+    public string GenerateApiKey() => ApiKeyHasher.GenerateApiKey();
+    public string HashApiKey(string apiKey) => ApiKeyHasher.HashApiKey(apiKey);
+    public string GetKeyPrefix(string apiKey) => ApiKeyHasher.GetKeyPrefix(apiKey);
 }
 ```
 

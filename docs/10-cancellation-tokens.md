@@ -138,6 +138,84 @@ User closes browser → ct.IsCancellationRequested = true → Database query sto
 
 ---
 
+## Read vs Write Operations: Cancellation Strategy
+
+> ⚠️ **Key Principle:** Honor cancellation for READ operations, but let WRITE operations complete.
+
+### Why Different Strategies?
+
+| Operation | Cancel? | Reason |
+|-----------|---------|--------|
+| **GET (Read)** | ✅ Yes | No side effects - safe to abort |
+| **POST (Create)** | ❌ No | Might cancel after data is written |
+| **PUT/PATCH (Update)** | ❌ No | Partial updates leave inconsistent state |
+| **DELETE** | ❌ No | Might delete but client thinks it failed |
+
+### The Problem with Cancelling Writes
+
+```
+Client                                Server                              Database
+  |---- POST /orders -------------------->|
+  |                                       |---- INSERT order ----------------->|
+  |                                       |                                    |
+  |  (user closes browser)                |                                    |
+  |                                       |<--- OK (committed) ----------------|
+  |  X-- Connection closed                |
+  |                                       |  CancellationToken triggered!
+  |                                       |  OperationCanceledException thrown
+  |                                       |
+  |                                       |  Order IS in database
+  |                                       |  But client got no response
+  |                                       |  Client thinks it failed
+  |                                       |  Client retries → duplicate order!
+```
+
+### Recommended Pattern
+
+```csharp
+// ✅ READ operations - honor cancellation
+[HttpGet("{id}")]
+public async Task<ActionResult<OrderDto>> GetById(int id, CancellationToken ct)
+{
+    var order = await _mediator.Send(new GetOrderByIdQuery(id), ct);
+    return Ok(order);
+}
+
+// ✅ WRITE operations - ignore cancellation (use CancellationToken.None)
+[HttpPost]
+public async Task<ActionResult<OrderDto>> Create(CreateOrderRequest request, CancellationToken _)
+{
+    // Intentionally ignore the cancellation token
+    // Let the write complete even if client disconnects
+    var order = await _mediator.Send(new CreateOrderCommand(request), CancellationToken.None);
+    return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
+}
+```
+
+### When to Cancel Writes
+
+There are exceptions where cancelling writes makes sense:
+
+1. **Long-running batch operations** with checkpointing
+2. **File uploads** (can be resumed)
+3. **Operations with idempotency keys** (safe to retry)
+
+```csharp
+// ✅ Batch operation with checkpointing - can cancel safely
+[HttpPost("batch-import")]
+public async Task<ActionResult> BatchImport(CancellationToken ct)
+{
+    foreach (var item in items)
+    {
+        ct.ThrowIfCancellationRequested();  // Safe - each item is atomic
+        await ProcessItemAsync(item);
+        await SaveCheckpointAsync(item.Id);
+    }
+}
+```
+
+---
+
 ## Best Practices
 
 ### ✅ DO
@@ -236,6 +314,9 @@ public async Task Handle_WithCancelledToken_ShouldThrowOperationCanceledExceptio
 - ✅ **Check periodically** in long-running loops
 - ✅ **Let exceptions propagate** - don't catch `OperationCanceledException`
 - ✅ **Use default parameter** to make it optional: `CancellationToken ct = default`
+- ✅ **Honor cancellation for READs** - safe to abort, no side effects
+- ⚠️ **Ignore cancellation for WRITEs** - use `CancellationToken.None` to prevent partial writes
 
 > **Rule of Thumb:** If a method is `async`, it should accept a `CancellationToken`.
+> For write operations, pass `CancellationToken.None` to ensure the operation completes.
 

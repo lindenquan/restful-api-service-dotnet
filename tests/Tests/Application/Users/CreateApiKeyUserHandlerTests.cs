@@ -1,9 +1,9 @@
-using Application.Users.Operations;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
+using Application.Users.Operations;
 using Domain;
-using FluentAssertions;
 using Moq;
+using Shouldly;
 
 namespace Tests.Application.Users;
 
@@ -12,6 +12,9 @@ namespace Tests.Application.Users;
 /// </summary>
 public class CreateApiKeyUserHandlerTests
 {
+    private static readonly Guid TestUserId = Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
+    private static readonly Guid CreatedById = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IUserRepository> _userRepoMock;
     private readonly Mock<IApiKeyGenerator> _apiKeyGeneratorMock;
@@ -37,7 +40,7 @@ public class CreateApiKeyUserHandlerTests
             Email: "test@example.com",
             UserType: UserType.Regular,
             Description: "Test user",
-            CreatedBy: "admin");
+            CreatedBy: CreatedById);
 
         _userRepoMock
             .Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
@@ -51,12 +54,12 @@ public class CreateApiKeyUserHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        result.Should().NotBeNull();
-        result.ApiKey.Should().Be("generated-api-key");
-        result.ApiKeyPrefix.Should().Be("generate...");
-        result.UserName.Should().Be("test-user");
-        result.Email.Should().Be("test@example.com");
-        result.UserType.Should().Be(UserType.Regular);
+        result.ShouldNotBeNull();
+        result.ApiKey.ShouldBe("generated-api-key");
+        result.ApiKeyPrefix.ShouldBe("generate...");
+        result.UserName.ShouldBe("test-user");
+        result.Email.ShouldBe("test@example.com");
+        result.UserType.ShouldBe(UserType.Regular);
 
         _userRepoMock.Verify(r => r.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -71,17 +74,14 @@ public class CreateApiKeyUserHandlerTests
             Email: "existing@example.com",
             UserType: UserType.Regular);
 
-        var existingUser = new User { Id = 1, Email = "existing@example.com" };
+        var existingUser = new User { Id = TestUserId, Email = "existing@example.com" };
         _userRepoMock
             .Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingUser);
 
-        // Act
-        var act = () => _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*already exists*");
+        // Act & Assert
+        var exception = await Should.ThrowAsync<InvalidOperationException>(() => _handler.Handle(command, CancellationToken.None));
+        exception.Message.ShouldContain("already exists");
     }
 
     [Fact]
@@ -111,10 +111,10 @@ public class CreateApiKeyUserHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        result.UserType.Should().Be(UserType.Admin);
-        capturedUser.Should().NotBeNull();
-        capturedUser!.UserType.Should().Be(UserType.Admin);
-        capturedUser.IsActive.Should().BeTrue();
+        result.UserType.ShouldBe(UserType.Admin);
+        capturedUser.ShouldNotBeNull();
+        capturedUser!.UserType.ShouldBe(UserType.Admin);
+        capturedUser.IsActive.ShouldBeTrue();
     }
 
     [Fact]
@@ -139,8 +139,8 @@ public class CreateApiKeyUserHandlerTests
         var result2 = await _handler.Handle(command2, CancellationToken.None);
 
         // Assert
-        result1.ApiKey.Should().Be("key-1");
-        result2.ApiKey.Should().Be("key-2");
+        result1.ApiKey.ShouldBe("key-1");
+        result2.ApiKey.ShouldBe("key-2");
     }
 }
 

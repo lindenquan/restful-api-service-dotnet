@@ -1,5 +1,5 @@
 using Domain;
-using FluentAssertions;
+using Shouldly;
 
 namespace Tests.Domain.Entities;
 
@@ -19,7 +19,7 @@ public class PatientTests
         };
 
         // Act & Assert
-        patient.FullName.Should().Be("John Doe");
+        patient.FullName.ShouldBe("John Doe");
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class PatientTests
         };
 
         // Act & Assert
-        patient.FullName.Should().Be("John ");
+        patient.FullName.ShouldBe("John ");
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class PatientTests
         };
 
         // Act & Assert
-        patient.FullName.Should().Be(" Doe");
+        patient.FullName.ShouldBe(" Doe");
     }
 
     [Fact]
@@ -57,10 +57,10 @@ public class PatientTests
         var patient = new Patient();
 
         // Assert
-        patient.Prescriptions.Should().NotBeNull();
-        patient.Prescriptions.Should().BeEmpty();
-        patient.Orders.Should().NotBeNull();
-        patient.Orders.Should().BeEmpty();
+        patient.Prescriptions.ShouldNotBeNull();
+        patient.Prescriptions.ShouldBeEmpty();
+        patient.Orders.ShouldNotBeNull();
+        patient.Orders.ShouldBeEmpty();
     }
 
     [Fact]
@@ -70,10 +70,10 @@ public class PatientTests
         var patient = new Patient();
 
         // Assert
-        patient.FirstName.Should().BeEmpty();
-        patient.LastName.Should().BeEmpty();
-        patient.Email.Should().BeEmpty();
-        patient.Phone.Should().BeNull();
+        patient.FirstName.ShouldBeEmpty();
+        patient.LastName.ShouldBeEmpty();
+        patient.Email.ShouldBeEmpty();
+        patient.Phone.ShouldBeNull();
     }
 }
 

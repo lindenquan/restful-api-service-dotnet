@@ -1,5 +1,8 @@
 using Application.Interfaces.Repositories;
 using Domain;
+using DTOs.Shared;
+using Infrastructure.Persistence.Mappers;
+using Infrastructure.Persistence.Models;
 using Infrastructure.Resilience;
 using MongoDB.Driver;
 
@@ -9,15 +12,15 @@ namespace Infrastructure.Persistence.Repositories;
 /// MongoDB implementation of IPrescriptionOrderRepository.
 /// Sealed for performance optimization and design intent.
 /// </summary>
-public sealed class MongoPrescriptionOrderRepository : MongoRepository<PrescriptionOrder>, IPrescriptionOrderRepository
+public sealed class MongoPrescriptionOrderRepository : MongoRepository<PrescriptionOrder, PrescriptionOrderDataModel>, IPrescriptionOrderRepository
 {
-    private readonly IMongoCollection<Patient> _patientsCollection;
-    private readonly IMongoCollection<Prescription> _prescriptionsCollection;
+    private readonly IMongoCollection<PatientDataModel> _patientsCollection;
+    private readonly IMongoCollection<PrescriptionDataModel> _prescriptionsCollection;
 
     public MongoPrescriptionOrderRepository(
-        IMongoCollection<PrescriptionOrder> collection,
-        IMongoCollection<Patient> patientsCollection,
-        IMongoCollection<Prescription> prescriptionsCollection,
+        IMongoCollection<PrescriptionOrderDataModel> collection,
+        IMongoCollection<PatientDataModel> patientsCollection,
+        IMongoCollection<PrescriptionDataModel> prescriptionsCollection,
         IResilientExecutor resilientExecutor)
         : base(collection, resilientExecutor)
     {
@@ -25,35 +28,45 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
         _prescriptionsCollection = prescriptionsCollection;
     }
 
-    public async Task<IEnumerable<PrescriptionOrder>> GetByPatientIdAsync(int patientId, CancellationToken ct = default)
+    protected override PrescriptionOrder ToDomain(PrescriptionOrderDataModel model) =>
+        PrescriptionOrderPersistenceMapper.ToDomain(model);
+
+    protected override PrescriptionOrderDataModel ToDataModel(PrescriptionOrder entity) =>
+        PrescriptionOrderPersistenceMapper.ToDataModel(entity);
+
+    public async Task<IEnumerable<PrescriptionOrder>> GetByPatientIdAsync(Guid patientId, CancellationToken ct = default)
     {
-        var orders = await _collection
-            .Find(o => o.PatientId == patientId)
+        var orderModels = await _collection
+            .Find(o => o.PatientId == patientId && !o.Metadata.IsDeleted)
             .SortByDescending(o => o.OrderDate)
             .ToListAsync(ct);
 
+        var orders = orderModels.Select(ToDomain).ToList();
         await LoadPrescriptionsAsync(orders, ct);
         return orders;
     }
 
-    public async Task<IEnumerable<PrescriptionOrder>> GetByPrescriptionIdAsync(int prescriptionId, CancellationToken ct = default)
+    public async Task<IEnumerable<PrescriptionOrder>> GetByPrescriptionIdAsync(Guid prescriptionId, CancellationToken ct = default)
     {
-        var orders = await _collection
-            .Find(o => o.PrescriptionId == prescriptionId)
+        var orderModels = await _collection
+            .Find(o => o.PrescriptionId == prescriptionId && !o.Metadata.IsDeleted)
             .SortByDescending(o => o.OrderDate)
             .ToListAsync(ct);
 
+        var orders = orderModels.Select(ToDomain).ToList();
         await LoadPatientsAsync(orders, ct);
         return orders;
     }
 
     public async Task<IEnumerable<PrescriptionOrder>> GetByStatusAsync(OrderStatus status, CancellationToken ct = default)
     {
-        var orders = await _collection
-            .Find(o => o.Status == status)
+        var dataStatus = (OrderStatusData)status;
+        var orderModels = await _collection
+            .Find(o => o.Status == dataStatus && !o.Metadata.IsDeleted)
             .SortByDescending(o => o.OrderDate)
             .ToListAsync(ct);
 
+        var orders = orderModels.Select(ToDomain).ToList();
         await LoadDetailsAsync(orders, ct);
         return orders;
     }
@@ -63,23 +76,29 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
         return await GetByStatusAsync(OrderStatus.Pending, ct);
     }
 
-    public async Task<PrescriptionOrder?> GetByIdWithDetailsAsync(int id, CancellationToken ct = default)
+    public async Task<PrescriptionOrder?> GetByIdWithDetailsAsync(Guid id, CancellationToken ct = default)
     {
         var order = await GetByIdAsync(id, ct);
         if (order == null)
             return null;
 
         // Load patient
-        var patient = await _patientsCollection
-            .Find(p => p.Id == order.PatientId)
+        var patientModel = await _patientsCollection
+            .Find(p => p.Id == order.PatientId && !p.Metadata.IsDeleted)
             .FirstOrDefaultAsync(ct);
-        order.Patient = patient;
+        if (patientModel != null)
+        {
+            order.Patient = PatientPersistenceMapper.ToDomain(patientModel);
+        }
 
         // Load prescription
-        var prescription = await _prescriptionsCollection
-            .Find(p => p.Id == order.PrescriptionId)
+        var prescriptionModel = await _prescriptionsCollection
+            .Find(p => p.Id == order.PrescriptionId && !p.Metadata.IsDeleted)
             .FirstOrDefaultAsync(ct);
-        order.Prescription = prescription;
+        if (prescriptionModel != null)
+        {
+            order.Prescription = PrescriptionPersistenceMapper.ToDomain(prescriptionModel);
+        }
 
         return order;
     }
@@ -90,11 +109,13 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
     private async Task LoadPrescriptionsAsync(List<PrescriptionOrder> orders, CancellationToken ct)
     {
         var prescriptionIds = orders.Select(o => o.PrescriptionId).Distinct().ToList();
-        var prescriptions = await _prescriptionsCollection
-            .Find(p => prescriptionIds.Contains(p.Id))
+        var prescriptionModels = await _prescriptionsCollection
+            .Find(p => prescriptionIds.Contains(p.Id) && !p.Metadata.IsDeleted)
             .ToListAsync(ct);
 
-        var prescriptionDict = prescriptions.ToDictionary(p => p.Id);
+        var prescriptionDict = prescriptionModels.ToDictionary(
+            p => p.Id,
+            p => PrescriptionPersistenceMapper.ToDomain(p));
 
         foreach (var order in orders)
         {
@@ -111,11 +132,13 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
     private async Task LoadPatientsAsync(List<PrescriptionOrder> orders, CancellationToken ct)
     {
         var patientIds = orders.Select(o => o.PatientId).Distinct().ToList();
-        var patients = await _patientsCollection
-            .Find(p => patientIds.Contains(p.Id))
+        var patientModels = await _patientsCollection
+            .Find(p => patientIds.Contains(p.Id) && !p.Metadata.IsDeleted)
             .ToListAsync(ct);
 
-        var patientDict = patients.ToDictionary(p => p.Id);
+        var patientDict = patientModels.ToDictionary(
+            p => p.Id,
+            p => PatientPersistenceMapper.ToDomain(p));
 
         foreach (var order in orders)
         {
@@ -133,6 +156,135 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
     {
         await LoadPatientsAsync(orders, ct);
         await LoadPrescriptionsAsync(orders, ct);
+    }
+
+    public async Task<IEnumerable<PrescriptionOrder>> GetAllWithDetailsAsync(CancellationToken ct = default)
+    {
+        var orders = (await GetAllAsync(ct)).ToList();
+        await LoadDetailsAsync(orders, ct);
+        return orders;
+    }
+
+    public async Task<IEnumerable<PrescriptionOrder>> GetByPatientIdWithDetailsAsync(Guid patientId, CancellationToken ct = default)
+    {
+        var orderModels = await _collection
+            .Find(o => o.PatientId == patientId && !o.Metadata.IsDeleted)
+            .SortByDescending(o => o.OrderDate)
+            .ToListAsync(ct);
+
+        var orders = orderModels.Select(ToDomain).ToList();
+        await LoadDetailsAsync(orders, ct);
+        return orders;
+    }
+
+    public async Task<IEnumerable<PrescriptionOrder>> GetByStatusWithDetailsAsync(OrderStatus status, CancellationToken ct = default)
+    {
+        var dataStatus = (OrderStatusData)status;
+        var orderModels = await _collection
+            .Find(o => o.Status == dataStatus && !o.Metadata.IsDeleted)
+            .SortByDescending(o => o.OrderDate)
+            .ToListAsync(ct);
+
+        var orders = orderModels.Select(ToDomain).ToList();
+        await LoadDetailsAsync(orders, ct);
+        return orders;
+    }
+
+    public async Task<PagedData<PrescriptionOrder>> GetPagedWithDetailsAsync(
+        int skip,
+        int top,
+        bool includeCount = false,
+        string? orderBy = null,
+        bool descending = false,
+        CancellationToken ct = default)
+    {
+        var filter = Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Metadata.IsDeleted, false);
+
+        var query = _collection.Find(filter);
+        query = ApplyOrderOrdering(query, orderBy, descending);
+
+        var models = await query
+            .Skip(skip)
+            .Limit(top)
+            .ToListAsync(ct);
+
+        long totalCount = 0;
+        if (includeCount)
+        {
+            totalCount = await _collection.CountDocumentsAsync(filter, cancellationToken: ct);
+        }
+
+        var orders = models.Select(ToDomain).ToList();
+        await LoadDetailsAsync(orders, ct);
+
+        return new PagedData<PrescriptionOrder>(orders, totalCount);
+    }
+
+    public async Task<PagedData<PrescriptionOrder>> GetPagedByPatientWithDetailsAsync(
+        Guid patientId,
+        int skip,
+        int top,
+        bool includeCount = false,
+        string? orderBy = null,
+        bool descending = false,
+        CancellationToken ct = default)
+    {
+        var filter = Builders<PrescriptionOrderDataModel>.Filter.And(
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.PatientId, patientId),
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Metadata.IsDeleted, false));
+
+        var query = _collection.Find(filter);
+        query = ApplyOrderOrdering(query, orderBy, descending);
+
+        var models = await query
+            .Skip(skip)
+            .Limit(top)
+            .ToListAsync(ct);
+
+        long totalCount = 0;
+        if (includeCount)
+        {
+            totalCount = await _collection.CountDocumentsAsync(filter, cancellationToken: ct);
+        }
+
+        var orders = models.Select(ToDomain).ToList();
+        await LoadDetailsAsync(orders, ct);
+
+        return new PagedData<PrescriptionOrder>(orders, totalCount);
+    }
+
+    /// <summary>
+    /// Apply ordering specific to prescription orders.
+    /// </summary>
+    private static IFindFluent<PrescriptionOrderDataModel, PrescriptionOrderDataModel> ApplyOrderOrdering(
+        IFindFluent<PrescriptionOrderDataModel, PrescriptionOrderDataModel> query,
+        string? orderBy,
+        bool descending)
+    {
+        // Default ordering by OrderDate descending (newest first)
+        if (string.IsNullOrEmpty(orderBy))
+        {
+            return query.SortByDescending(o => o.OrderDate);
+        }
+
+        var normalizedOrderBy = orderBy.ToLowerInvariant();
+
+        return normalizedOrderBy switch
+        {
+            "orderdate" => descending
+                ? query.SortByDescending(o => o.OrderDate)
+                : query.SortBy(o => o.OrderDate),
+            "status" => descending
+                ? query.SortByDescending(o => o.Status)
+                : query.SortBy(o => o.Status),
+            "createdat" => descending
+                ? query.SortByDescending(o => o.Metadata.CreatedAt)
+                : query.SortBy(o => o.Metadata.CreatedAt),
+            "id" => descending
+                ? query.SortByDescending(o => o.Id)
+                : query.SortBy(o => o.Id),
+            _ => query.SortByDescending(o => o.OrderDate) // Fallback to default
+        };
     }
 }
 

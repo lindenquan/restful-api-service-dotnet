@@ -30,8 +30,9 @@ public class L1CacheSettings
 
     /// <summary>
     /// Consistency mode: Strong (invalidation via pub/sub) or Eventual (short TTL).
+    /// Default is Strong for healthcare data integrity.
     /// </summary>
-    public CacheConsistency Consistency { get; set; } = CacheConsistency.Eventual;
+    public CacheConsistency Consistency { get; set; } = CacheConsistency.Strong;
 
     /// <summary>
     /// TTL for L1 cache entries in seconds.
@@ -116,20 +117,38 @@ public class L2CacheSettings
 
 /// <summary>
 /// Cache consistency modes.
+/// <para>
+/// <strong>Important:</strong> Neither mode provides perfect consistency.
+/// For zero tolerance of stale data, disable caching entirely.
+/// </para>
 /// </summary>
 public enum CacheConsistency
 {
     /// <summary>
-    /// Strong consistency: Immediate invalidation across all instances.
-    /// L1: Uses Redis pub/sub for cross-instance invalidation.
-    /// L2: Write-through (synchronous writes).
+    /// Strong consistency: Near real-time invalidation via Redis pub/sub.
+    /// <para>
+    /// <strong>Mechanism:</strong> Pub/sub invalidation messages across instances.
+    /// </para>
+    /// <para>
+    /// <strong>Stale window:</strong> Milliseconds to seconds (network latency dependent).
+    /// </para>
+    /// <para>
+    /// <strong>Requires:</strong> L2 (Redis) must be enabled for cross-instance invalidation.
+    /// </para>
     /// </summary>
     Strong,
 
     /// <summary>
-    /// Eventual consistency: Data may be stale for a short period.
-    /// L1: Short TTL, no cross-instance invalidation.
-    /// L2: Standard caching behavior.
+    /// Eventual consistency: TTL-based cache expiration.
+    /// <para>
+    /// <strong>Mechanism:</strong> Cache entries expire after configured TTL.
+    /// </para>
+    /// <para>
+    /// <strong>Stale window:</strong> Up to configured TtlSeconds (e.g., 10s, 30s).
+    /// </para>
+    /// <para>
+    /// <strong>Best for:</strong> Development, single-instance, or stale-tolerant data.
+    /// </para>
     /// </summary>
     Eventual
 }

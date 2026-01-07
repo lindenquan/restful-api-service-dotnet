@@ -69,7 +69,16 @@ EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_RUNNING_IN_CONTAINER=true \
-    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    # GC Configuration for Kubernetes
+    # Limit heap to 75% of container memory (leave 25% for non-GC memory, system, sidecar)
+    DOTNET_GCHeapHardLimitPercent=4B \
+    # Use Server GC for multi-threaded workloads
+    DOTNET_gcServer=1 \
+    # Enable concurrent GC to reduce pause times
+    DOTNET_gcConcurrent=1 \
+    # Conserve memory - more aggressive GC
+    DOTNET_GCConserveMemory=9
 
 # Health check (Kubernetes will use this)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

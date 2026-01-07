@@ -1,5 +1,4 @@
 using Application.Interfaces.Repositories;
-using Application.Orders.Shared;
 using Domain;
 using MediatR;
 
@@ -7,20 +6,20 @@ namespace Application.Orders.Operations;
 
 /// <summary>
 /// Command to update prescription order status.
-/// Uses internal DTO - controllers map to/from versioned DTOs.
+/// Controllers map to/from versioned DTOs.
 /// </summary>
 public record UpdateOrderStatusCommand(
-    int OrderId,
+    Guid OrderId,
     OrderStatus Status,
     string? Notes,
-    string? UpdatedBy = null
-) : IRequest<InternalOrderDto?>;
+    Guid? UpdatedBy = null
+) : IRequest<PrescriptionOrder?>;
 
 /// <summary>
 /// Handler for UpdateOrderStatusCommand.
 /// Sealed for performance optimization and design intent.
 /// </summary>
-public sealed class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand, InternalOrderDto?>
+public sealed class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatusCommand, PrescriptionOrder?>
 {
     private readonly IUnitOfWork _unitOfWork;
 
@@ -29,7 +28,7 @@ public sealed class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatus
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<InternalOrderDto?> Handle(UpdateOrderStatusCommand request, CancellationToken ct)
+    public async Task<PrescriptionOrder?> Handle(UpdateOrderStatusCommand request, CancellationToken ct)
     {
         var order = await _unitOfWork.PrescriptionOrders.GetByIdAsync(request.OrderId, ct);
         if (order == null)
@@ -38,7 +37,7 @@ public sealed class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatus
         order.Status = request.Status;
         if (request.Notes != null)
             order.Notes = request.Notes;
-        order.Metadata.UpdatedBy = request.UpdatedBy;
+        order.UpdatedBy = request.UpdatedBy;
 
         // Set fulfilled/pickup dates based on status
         if (request.Status == OrderStatus.Ready)
@@ -49,8 +48,7 @@ public sealed class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatus
         _unitOfWork.PrescriptionOrders.Update(order);
         await _unitOfWork.SaveChangesAsync(ct);
 
-        var updated = await _unitOfWork.PrescriptionOrders.GetByIdWithDetailsAsync(request.OrderId, ct);
-        return EntityToInternalDto.Map(updated!);
+        return await _unitOfWork.PrescriptionOrders.GetByIdWithDetailsAsync(request.OrderId, ct);
     }
 }
 

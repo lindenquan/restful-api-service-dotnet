@@ -46,30 +46,45 @@ This project uses a **two-tier testing strategy**:
 ```
 tests/Tests/
 ├── Domain/
-│   └── Domain/
-│       ├── OrderTests.cs
-│       └── UserTests.cs
+│   └── Entities/
+│       ├── PatientTests.cs
+│       └── PrescriptionTests.cs
 │
 ├── Application/
 │   ├── Orders/
 │   │   ├── CreateOrderHandlerTests.cs
+│   │   ├── CreateOrderValidatorTests.cs
 │   │   ├── GetOrderByIdHandlerTests.cs
-│   │   └── CreateOrderValidatorTests.cs
-│   ├── Behaviors/
-│   │   ├── LoggingBehaviorTests.cs
-│   │   └── ValidationBehaviorTests.cs
-│   └── ApiKeys/
-│       └── CreateApiKeyHandlerTests.cs
+│   │   ├── CancelOrderHandlerTests.cs
+│   │   └── UpdateOrderStatusHandlerTests.cs
+│   ├── Patients/
+│   │   ├── CreatePatientHandlerTests.cs
+│   │   ├── CreatePatientValidatorTests.cs
+│   │   ├── GetPatientByIdHandlerTests.cs
+│   │   └── GetAllPatientsHandlerTests.cs
+│   ├── Users/
+│   │   ├── CreateApiKeyUserHandlerTests.cs
+│   │   └── CreateApiKeyUserValidatorTests.cs
+│   └── Behaviors/
+│       └── ValidationBehaviorTests.cs
 │
 ├── Infrastructure/
 │   ├── Security/
 │   │   └── ApiKeyHasherTests.cs
-│   └── Cache/
-│       └── MemoryCacheServiceTests.cs
+│   ├── Cache/
+│   │   └── MemoryCacheServiceTests.cs
+│   ├── Persistence/
+│   │   ├── PatientPersistenceMapperTests.cs
+│   │   ├── PrescriptionPersistenceMapperTests.cs
+│   │   ├── PrescriptionOrderPersistenceMapperTests.cs
+│   │   └── UserPersistenceMapperTests.cs
+│   └── Resilience/
+│       ├── ResilienceSettingsTests.cs
+│       └── TransientExceptionDetectionTests.cs
 │
 └── Api/
     └── Controllers/
-        └── OrdersControllerTests.cs
+        (empty - controller tests covered by E2E tests)
 ```
 
 ### Running Unit Tests
@@ -132,9 +147,16 @@ tests/Tests.Api.E2E/
 │   ├── ApiE2ETestFixture.cs          # WebApplicationFactory with E2E config
 │   └── ApiE2ETestCollection.cs       # Shared test context
 │
-├── OrdersApiE2ETests.cs              # CRUD operations via HttpClient
-├── RedisCacheE2ETests.cs             # Redis cache integration tests
-└── AdminApiE2ETests.cs               # Admin operations (if needed)
+├── V1/
+│   ├── OrdersApiE2ETests.cs          # V1 CRUD operations via HttpClient
+│   ├── PatientsApiE2ETests.cs        # V1 Patients endpoint tests
+│   └── PrescriptionsApiE2ETests.cs   # V1 Prescriptions endpoint tests
+│
+├── V2/
+│   ├── PatientsApiV2E2ETests.cs      # V2 Patients endpoint tests
+│   └── PrescriptionsApiV2E2ETests.cs # V2 Prescriptions endpoint tests
+│
+└── RedisCacheE2ETests.cs             # Redis cache integration tests
 ```
 
 ### Running API E2E Tests

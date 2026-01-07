@@ -11,8 +11,8 @@ public sealed class UpdateOrderStatusValidator : AbstractValidator<UpdateOrderSt
     public UpdateOrderStatusValidator()
     {
         RuleFor(x => x.OrderId)
-            .GreaterThan(0)
-            .WithMessage("OrderId must be a positive number");
+            .NotEmpty()
+            .WithMessage("OrderId is required");
 
         RuleFor(x => x.Status)
             .IsInEnum()

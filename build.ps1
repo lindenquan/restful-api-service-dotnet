@@ -21,7 +21,7 @@ param(
     [Parameter(Position = 0)]
     [ValidateSet(
         'run', 'local', 'dev', 'stage',
-        'build', 'test', 'test-coverage', 'test-api-e2e', 'test-all',
+        'build', 'test', 'test-coverage', 'test-api-e2e',
         'format', 'clean', 'restore',
         'docker-up', 'docker-up-api', 'docker-down',
         'docker-build-lambda', 'docker-build-eks', 'docker-build-all',
@@ -55,7 +55,12 @@ function Invoke-BuildCommand {
     Write-Host "[>] $Name..." -ForegroundColor Cyan
 
     try {
+        $global:LASTEXITCODE = 0  # Reset before running command
         & $ScriptBlock
+        # Check exit code for native commands (dotnet, docker, etc.)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Command failed with exit code $LASTEXITCODE"
+        }
         $stopwatch.Stop()
         $duration = Format-Duration $stopwatch.Elapsed
         Write-Host "[OK] $Name [$duration]" -ForegroundColor Green
@@ -81,22 +86,22 @@ function Write-Step($step, $text) {
 switch ($Command) {
     'run' {
         Invoke-BuildCommand -Name "Run API" -ScriptBlock {
-            dotnet run --project src/Adapters
+            dotnet run --project src/Infrastructure
         }
     }
     'local' {
         Invoke-BuildCommand -Name "Run API (local)" -ScriptBlock {
-            dotnet run --project src/Adapters --environment local
+            dotnet run --project src/Infrastructure --environment local
         }
     }
     'dev' {
         Invoke-BuildCommand -Name "Run API (dev)" -ScriptBlock {
-            dotnet run --project src/Adapters --environment dev
+            dotnet run --project src/Infrastructure --environment dev
         }
     }
     'stage' {
         Invoke-BuildCommand -Name "Run API (stage)" -ScriptBlock {
-            dotnet run --project src/Adapters --environment stage
+            dotnet run --project src/Infrastructure --environment stage
         }
     }
     'build' {
@@ -117,7 +122,9 @@ switch ($Command) {
     'test-api-e2e' {
         $totalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         if ($Env -eq 'local') {
-            & $PSCommandPath docker-up
+            # For local E2E tests, start the full API stack in Docker
+            # This mimics testing against a real deployed API
+            & $PSCommandPath docker-up-api
         }
         try {
             $env:ASPNETCORE_ENVIRONMENT = $Env
@@ -135,17 +142,7 @@ switch ($Command) {
         $totalStopwatch.Stop()
         Write-Host "`n[TIME] Total E2E test time: $(Format-Duration $totalStopwatch.Elapsed)" -ForegroundColor Magenta
     }
-    'test-all' {
-        $totalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        Write-Header "Running ALL Tests"
-        Write-Step 1 "API Unit Tests"
-        & $PSCommandPath test
-        Write-Step 2 "API E2E Tests"
-        & $PSCommandPath test-api-e2e -Env local
-        $totalStopwatch.Stop()
-        Write-Header "[OK] All Tests Passed!"
-        Write-Host "[TIME] Total time: $(Format-Duration $totalStopwatch.Elapsed)" -ForegroundColor Magenta
-    }
+
     'format' {
         Invoke-BuildCommand -Name "Format code" -ScriptBlock {
             dotnet format
@@ -163,7 +160,10 @@ switch ($Command) {
     }
     'docker-up' {
         Invoke-BuildCommand -Name "Start MongoDB + Redis" -ScriptBlock {
-            docker compose up -d mongodb redis --wait db-migrate
+            docker compose up -d mongodb redis --wait
+        }
+        Invoke-BuildCommand -Name "Run database migrations" -ScriptBlock {
+            docker compose run --rm --no-deps db-migrate
         }
     }
     'docker-up-api' {
@@ -195,20 +195,74 @@ switch ($Command) {
     }
     'ultimate' {
         $totalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $apiProcess = $null
         Write-Header "Starting Complete CI/CD Pipeline"
+
         Write-Step 1 "Clean build artifacts"
         & $PSCommandPath clean
-        Write-Step 2 "Build solution"
+
+        Write-Step 2 "Format code"
+        & $PSCommandPath format
+
+        Write-Step 3 "Build solution"
         & $PSCommandPath build
-        Write-Step 3 "Run all tests"
-        & $PSCommandPath test-all
+
+        Write-Step 4 "Run unit tests"
+        Invoke-BuildCommand -Name "Run unit tests" -ScriptBlock {
+            dotnet test tests/Tests --verbosity minimal
+        }
+
+        Write-Step 5 "Start MongoDB + Redis"
+        & $PSCommandPath docker-up
+
+        Write-Step 6 "Start API (background)"
+        $apiProcess = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "src/Infrastructure" -PassThru -WindowStyle Hidden
+        Write-Host "  Waiting for API to be ready..." -ForegroundColor Gray
+        $maxRetries = 30
+        $ready = $false
+        for ($i = 0; $i -lt $maxRetries; $i++) {
+            Start-Sleep -Seconds 1
+            try {
+                $response = Invoke-WebRequest -Uri "http://localhost:8080/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
+                if ($response.StatusCode -eq 200) {
+                    Write-Host "  API is ready (PID: $($apiProcess.Id))" -ForegroundColor Green
+                    $ready = $true
+                    break
+                }
+            } catch { }
+        }
+        if (-not $ready) {
+            throw "API failed to start within timeout"
+        }
+
+        try {
+            Write-Step 7 "Run API E2E tests"
+            $env:ASPNETCORE_ENVIRONMENT = 'local'
+            Invoke-BuildCommand -Name "Run API E2E tests" -ScriptBlock {
+                dotnet test tests/Tests.Api.E2E --verbosity minimal
+            }
+        }
+        finally {
+            Write-Step 8 "Stop API"
+            if ($apiProcess -and -not $apiProcess.HasExited) {
+                Stop-Process -Id $apiProcess.Id -Force -ErrorAction SilentlyContinue
+                Write-Host "  API stopped" -ForegroundColor Green
+            }
+
+            Write-Step 9 "Stop Docker services"
+            & $PSCommandPath docker-down
+        }
+
         $totalStopwatch.Stop()
         Write-Header "[OK] Complete CI/CD Pipeline Successful!"
         Write-Host "[TIME] Total pipeline time: $(Format-Duration $totalStopwatch.Elapsed)" -ForegroundColor Magenta
         Write-Host "`nSummary:" -ForegroundColor Green
         Write-Host "  - Clean: [OK]" -ForegroundColor Green
+        Write-Host "  - Format: [OK]" -ForegroundColor Green
         Write-Host "  - Build: [OK]" -ForegroundColor Green
         Write-Host "  - Unit Tests: [OK]" -ForegroundColor Green
+        Write-Host "  - Docker: [OK]" -ForegroundColor Green
+        Write-Host "  - API: [OK]" -ForegroundColor Green
         Write-Host "  - E2E Tests: [OK]" -ForegroundColor Green
     }
     'help' {
@@ -225,8 +279,9 @@ API Commands:
   build               Build the solution
   test                Run unit tests
   test-coverage       Run tests with coverage
-  test-api-e2e        Run API E2E tests (default: local with Docker)
-                      Use -Env dev|stage to test against other environments
+  test-api-e2e        Run API E2E tests against real API service
+                      -Env local: Tests against API in Docker (localhost:8080)
+                      -Env dev|stage: Tests against deployed API (requires API_BASE_URL)
   format              Format code
   clean               Clean build artifacts
   restore             Restore packages
@@ -240,7 +295,6 @@ Docker Commands:
   docker-build-all    Build all Docker images
 
 Test Commands:
-  test-all            Run all tests (unit + E2E)
   ultimate            Run complete CI/CD pipeline
 
 Examples:

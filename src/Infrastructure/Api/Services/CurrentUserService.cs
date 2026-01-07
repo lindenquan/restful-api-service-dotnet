@@ -9,9 +9,9 @@ namespace Infrastructure.Api.Services;
 public interface ICurrentUserService
 {
     /// <summary>
-    /// Current user's ID.
+    /// Current user's ID (UUID v7).
     /// </summary>
-    int? UserId { get; }
+    Guid? UserId { get; }
 
     /// <summary>
     /// Current user's name.
@@ -56,12 +56,12 @@ public sealed class CurrentUserService : ICurrentUserService
 
     public bool IsAuthenticated => User?.Identity?.IsAuthenticated ?? false;
 
-    public int? UserId
+    public Guid? UserId
     {
         get
         {
             var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return int.TryParse(userIdClaim, out var userId) ? userId : null;
+            return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
         }
     }
 

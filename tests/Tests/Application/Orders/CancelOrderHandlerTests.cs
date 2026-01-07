@@ -1,8 +1,8 @@
 using Application.Interfaces.Repositories;
 using Application.Orders.Operations;
 using Domain;
-using FluentAssertions;
 using Moq;
+using Shouldly;
 
 namespace Tests.Application.Orders;
 
@@ -11,6 +11,9 @@ namespace Tests.Application.Orders;
 /// </summary>
 public class CancelOrderHandlerTests
 {
+    private static readonly Guid TestOrderId = Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
+    private static readonly Guid NonExistentId = Guid.Parse("99999999-9999-9999-9999-999999999999");
+
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IPrescriptionOrderRepository> _orderRepoMock;
     private readonly CancelOrderHandler _handler;
@@ -31,20 +34,20 @@ public class CancelOrderHandlerTests
         // Arrange
         var order = new PrescriptionOrder
         {
-            Id = 1,
+            Id = TestOrderId,
             Status = OrderStatus.Pending
         };
 
-        _orderRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        _orderRepoMock.Setup(r => r.GetByIdAsync(TestOrderId, It.IsAny<CancellationToken>())).ReturnsAsync(order);
 
-        var command = new CancelOrderCommand(1);
+        var command = new CancelOrderCommand(TestOrderId);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        result.Should().BeTrue();
-        order.Status.Should().Be(OrderStatus.Cancelled);
+        result.ShouldBeTrue();
+        order.Status.ShouldBe(OrderStatus.Cancelled);
         _orderRepoMock.Verify(r => r.Update(order), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -53,15 +56,15 @@ public class CancelOrderHandlerTests
     public async Task Handle_WithNonExistentOrder_ShouldReturnFalse()
     {
         // Arrange
-        _orderRepoMock.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync((PrescriptionOrder?)null);
+        _orderRepoMock.Setup(r => r.GetByIdAsync(NonExistentId, It.IsAny<CancellationToken>())).ReturnsAsync((PrescriptionOrder?)null);
 
-        var command = new CancelOrderCommand(999);
+        var command = new CancelOrderCommand(NonExistentId);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
         _orderRepoMock.Verify(r => r.Update(It.IsAny<PrescriptionOrder>()), Times.Never);
     }
 
@@ -71,20 +74,17 @@ public class CancelOrderHandlerTests
         // Arrange
         var order = new PrescriptionOrder
         {
-            Id = 1,
+            Id = TestOrderId,
             Status = OrderStatus.Completed
         };
 
-        _orderRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        _orderRepoMock.Setup(r => r.GetByIdAsync(TestOrderId, It.IsAny<CancellationToken>())).ReturnsAsync(order);
 
-        var command = new CancelOrderCommand(1);
+        var command = new CancelOrderCommand(TestOrderId);
 
-        // Act
-        var act = () => _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Cannot cancel a completed order*");
+        // Act & Assert
+        var exception = await Should.ThrowAsync<InvalidOperationException>(() => _handler.Handle(command, CancellationToken.None));
+        exception.Message.ShouldContain("Cannot cancel a completed order");
     }
 
     [Theory]
@@ -96,20 +96,20 @@ public class CancelOrderHandlerTests
         // Arrange
         var order = new PrescriptionOrder
         {
-            Id = 1,
+            Id = TestOrderId,
             Status = status
         };
 
-        _orderRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        _orderRepoMock.Setup(r => r.GetByIdAsync(TestOrderId, It.IsAny<CancellationToken>())).ReturnsAsync(order);
 
-        var command = new CancelOrderCommand(1);
+        var command = new CancelOrderCommand(TestOrderId);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        result.Should().BeTrue();
-        order.Status.Should().Be(OrderStatus.Cancelled);
+        result.ShouldBeTrue();
+        order.Status.ShouldBe(OrderStatus.Cancelled);
     }
 }
 

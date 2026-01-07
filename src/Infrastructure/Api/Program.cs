@@ -1,16 +1,16 @@
-using System.Threading.RateLimiting;
+using Application;
+using Asp.Versioning;
+using DotNetEnv;
+using DTOs.Shared;
 using Infrastructure.Api.Authentication;
 using Infrastructure.Api.Authorization;
+using Infrastructure.Api.Configuration;
 using Infrastructure.Api.Middleware;
 using Infrastructure.Api.Services;
 using Infrastructure.Cache;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Configuration;
 using Infrastructure.Resilience;
-using Application;
-using Asp.Versioning;
-using DotNetEnv;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi;
 
 // Load .env file from solution root (must be done before WebApplication.CreateBuilder)
@@ -163,9 +163,17 @@ var corsSettings = builder.Configuration
     .GetSection(CorsSettings.SectionName)
     .Get<CorsSettings>() ?? new CorsSettings();
 
-var rateLimitSettings = builder.Configuration
-    .GetSection(RateLimitSettings.SectionName)
-    .Get<RateLimitSettings>() ?? new RateLimitSettings();
+var rateLimitingSettings = builder.Configuration
+    .GetSection(RateLimitingSettings.SectionName)
+    .Get<RateLimitingSettings>() ?? new RateLimitingSettings();
+
+var requestTimeoutSettings = builder.Configuration
+    .GetSection("RequestTimeout")
+    .Get<RequestTimeoutSettings>() ?? new RequestTimeoutSettings();
+
+var paginationSettings = builder.Configuration
+    .GetSection(PaginationSettings.SectionName)
+    .Get<PaginationSettings>() ?? new PaginationSettings();
 
 var swaggerEnabled = builder.Configuration.GetValue<bool?>("Swagger:Enabled") ?? false;
 
@@ -182,6 +190,26 @@ builder.Services.AddResilience(builder.Configuration);
 builder.Services.Configure<RootAdminSettings>(
     builder.Configuration.GetSection(RootAdminSettings.SectionName));
 builder.Services.AddHostedService<RootAdminInitializer>();
+builder.Services.AddHostedService<SystemMetricsService>();
+
+// Register Rate Limiting, Request Timeout, and Pagination settings
+builder.Services.AddSingleton(rateLimitingSettings);
+builder.Services.AddSingleton(requestTimeoutSettings);
+builder.Services.AddSingleton(paginationSettings);
+
+// Configure Graceful Shutdown
+// This allows in-flight requests to complete before the application shuts down
+var gracefulShutdownSettings = builder.Configuration
+    .GetSection(GracefulShutdownSettings.SectionName)
+    .Get<GracefulShutdownSettings>() ?? new GracefulShutdownSettings();
+
+builder.Host.ConfigureHostOptions(options =>
+{
+    // ShutdownTimeout controls how long the host waits for graceful shutdown
+    // after IHostApplicationLifetime.StopApplication() is called.
+    // This should be LESS than Kubernetes terminationGracePeriodSeconds (60s)
+    options.ShutdownTimeout = TimeSpan.FromSeconds(gracefulShutdownSettings.ShutdownTimeoutSeconds);
+});
 
 // Configure API Key Authentication
 builder.Services.AddHttpContextAccessor();
@@ -220,34 +248,6 @@ builder.Services.AddCors(options =>
               .SetPreflightMaxAge(TimeSpan.FromSeconds(corsSettings.PreflightMaxAgeSeconds));
     });
 });
-
-// Configure Rate Limiting (Concurrency Limiter)
-if (rateLimitSettings.Enabled)
-{
-    builder.Services.AddRateLimiter(options =>
-    {
-        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
-        options.AddConcurrencyLimiter("concurrency", limiterOptions =>
-        {
-            limiterOptions.PermitLimit = rateLimitSettings.PermitLimit;
-            limiterOptions.QueueLimit = rateLimitSettings.QueueLimit;
-            limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        });
-
-        options.OnRejected = async (context, cancellationToken) =>
-        {
-            context.HttpContext.Response.Headers["Retry-After"] = "5";
-            await context.HttpContext.Response.WriteAsJsonAsync(new
-            {
-                type = "https://httpstatuses.com/429",
-                title = "Too Many Requests",
-                status = 429,
-                message = rateLimitSettings.RejectionMessage
-            }, cancellationToken);
-        };
-    });
-}
 
 // Configure Health Checks
 var healthChecksBuilder = builder.Services.AddHealthChecks()
@@ -302,29 +302,35 @@ var app = builder.Build();
 // 1. Global exception handler (first to catch all errors)
 app.UseGlobalExceptionHandler();
 
-// 2. Security headers
-app.UseSecurityHeaders();
-
-// 3. HTTPS redirection
-app.UseHttpsRedirection();
-
-// 4. CORS (must be before auth and routing)
-app.UseCors("DefaultPolicy");
-
-// 5. Rate limiting
-if (rateLimitSettings.Enabled)
+// 2. Request timeout (prevent runaway requests - Kestrel has no default!)
+if (requestTimeoutSettings.Enabled)
 {
-    app.UseRateLimiter();
+    app.UseRequestTimeout();
 }
 
-// 6. Validation exception handler
+// 3. Rate limiting (reject requests when system is under pressure)
+if (rateLimitingSettings.Enabled)
+{
+    app.UseRateLimiting();
+}
+
+// 4. Security headers
+app.UseSecurityHeaders();
+
+// 5. HTTPS redirection
+app.UseHttpsRedirection();
+
+// 6. CORS (must be before auth and routing)
+app.UseCors("DefaultPolicy");
+
+// 7. Validation exception handler
 app.UseValidationExceptionHandler();
 
-// 7. Authentication and Authorization
+// 8. Authentication and Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 8. Health check endpoint - returns Unhealthy if MongoDB or Redis (when L2 enabled) are down
+// 9. Health check endpoint - returns Unhealthy if MongoDB or Redis (when L2 enabled) are down
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>
@@ -345,7 +351,7 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
     }
 });
 
-// 9. OpenAPI & Swagger UI - controlled by configuration (Swagger:Enabled)
+// 10. OpenAPI & Swagger UI - controlled by configuration (Swagger:Enabled)
 if (swaggerEnabled)
 {
     app.MapOpenApi();
@@ -358,8 +364,27 @@ if (swaggerEnabled)
     });
 }
 
-// 10. Controllers
-app.MapControllers().RequireRateLimiting("concurrency");
+// 11. Controllers
+app.MapControllers();
+
+// 12. Register graceful shutdown logging
+// IHostApplicationLifetime provides hooks for application lifecycle events
+var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+var shutdownLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Shutdown");
+
+lifetime.ApplicationStarted.Register(() =>
+    shutdownLogger.LogInformation(
+        "Application started. Graceful shutdown timeout: {Timeout}s",
+        gracefulShutdownSettings.ShutdownTimeoutSeconds));
+
+lifetime.ApplicationStopping.Register(() =>
+    shutdownLogger.LogWarning(
+        "SIGTERM received. Stopping new request acceptance. " +
+        "Waiting up to {Timeout}s for in-flight requests to complete...",
+        gracefulShutdownSettings.ShutdownTimeoutSeconds));
+
+lifetime.ApplicationStopped.Register(() =>
+    shutdownLogger.LogInformation("Application stopped gracefully."));
 
 app.Run();
 

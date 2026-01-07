@@ -152,29 +152,29 @@ DTOs/
 ```
 Application/
 ├── Orders/                     # Feature: Order Management
-│   ├── Operations/
-│   │   ├── CreateOrder.cs      # Request + Handler in one file
-│   │   ├── CreateOrderValidator.cs
-│   │   ├── UpdateOrderStatus.cs
-│   │   ├── UpdateOrderStatusValidator.cs
-│   │   ├── CancelOrder.cs
-│   │   ├── DeleteOrder.cs
-│   │   ├── GetOrderById.cs
-│   │   ├── GetAllOrders.cs
-│   │   ├── GetOrdersByStatus.cs
-│   │   └── GetOrdersByUser.cs
-│   └── Shared/
-│       ├── InternalOrderDto.cs    # Internal representation (Status: OrderStatus enum)
-│       └── EntityToInternalDto.cs # Entity → Internal DTO mapper
+│   └── Operations/
+│       ├── CreateOrder.cs      # Request + Handler in one file
+│       ├── CreateOrderValidator.cs
+│       ├── UpdateOrderStatus.cs
+│       ├── UpdateOrderStatusValidator.cs
+│       ├── CancelOrder.cs
+│       ├── DeleteOrder.cs
+│       ├── GetOrderById.cs
+│       ├── GetAllOrders.cs
+│       ├── GetOrdersByStatus.cs
+│       └── GetOrdersByUser.cs
 │
 ├── Prescriptions/              # Feature: Prescription Management
-│   ├── Operations/
-│   │   ├── CreatePrescription.cs
-│   │   ├── CreatePrescriptionValidator.cs
-│   │   └── GetPrescriptionById.cs
-│   └── Shared/
-│       ├── InternalPrescriptionDto.cs  # Internal representation
-│       └── EntityToInternalDto.cs      # Entity → Internal DTO mapper
+│   └── Operations/
+│       ├── CreatePrescription.cs
+│       ├── CreatePrescriptionValidator.cs
+│       └── GetPrescriptionById.cs
+│
+├── Patients/                   # Feature: Patient Management
+│   └── Operations/
+│       ├── CreatePatient.cs
+│       ├── CreatePatientValidator.cs
+│       └── GetPatientById.cs
 │
 ├── Users/                      # Feature: User Management (Admin)
 │   └── Operations/
@@ -202,12 +202,12 @@ Application/
 ```
 
 **Key Principles:**
-- ✅ **Consistent structure** - Every feature has `Operations/` and `Shared/`
-- ✅ **Internal DTOs in Shared/** - `InternalXxxDto` for each feature
-- ✅ **Type safety** - Internal DTOs use enums (e.g., `OrderStatus` not string)
-- ✅ **Mappers in Shared/** - `EntityToInternalDto` for each feature
+- ✅ **Feature-based organization** - Every feature has `Operations/` folder
+- ✅ **Handlers return Domain entities** - Controllers map to versioned DTOs
+- ✅ **Type safety** - Domain entities use enums (e.g., `OrderStatus`)
 - ✅ **External DTOs separate** - Versioned DTOs in `src/DTOs` project
 - ✅ **Cross-version DTOs** - Shared DTOs in `src/DTOs/Shared/` for common types
+- ✅ **UUID v7 IDs** - All entity IDs use time-sortable UUID v7
 
 ### Infrastructure Layer (`src/Infrastructure/`)
 

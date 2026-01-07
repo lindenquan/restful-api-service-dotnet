@@ -1,7 +1,7 @@
-using Infrastructure.Persistence.Configuration;
-using Infrastructure.Resilience;
 using Application.Interfaces.Repositories;
-using Domain;
+using Infrastructure.Persistence.Configuration;
+using Infrastructure.Persistence.Models;
+using Infrastructure.Resilience;
 using MongoDB.Driver;
 
 namespace Infrastructure.Persistence.Repositories;
@@ -15,10 +15,10 @@ namespace Infrastructure.Persistence.Repositories;
 public sealed class MongoUnitOfWork : IUnitOfWork
 {
     private readonly IMongoDatabase _database;
-    private readonly IMongoCollection<Patient> _patientsCollection;
-    private readonly IMongoCollection<Prescription> _prescriptionsCollection;
-    private readonly IMongoCollection<PrescriptionOrder> _ordersCollection;
-    private readonly IMongoCollection<User> _usersCollection;
+    private readonly IMongoCollection<PatientDataModel> _patientsCollection;
+    private readonly IMongoCollection<PrescriptionDataModel> _prescriptionsCollection;
+    private readonly IMongoCollection<PrescriptionOrderDataModel> _ordersCollection;
+    private readonly IMongoCollection<UserDataModel> _usersCollection;
     private readonly IResilientExecutor _resilientExecutor;
 
     private IPatientRepository? _patients;
@@ -33,10 +33,10 @@ public sealed class MongoUnitOfWork : IUnitOfWork
         _database = client.GetDatabase(settings.DatabaseName);
         _resilientExecutor = resilientExecutor;
 
-        _patientsCollection = _database.GetCollection<Patient>(settings.PatientsCollection);
-        _prescriptionsCollection = _database.GetCollection<Prescription>(settings.PrescriptionsCollection);
-        _ordersCollection = _database.GetCollection<PrescriptionOrder>(settings.OrdersCollection);
-        _usersCollection = _database.GetCollection<User>(settings.UsersCollection);
+        _patientsCollection = _database.GetCollection<PatientDataModel>(settings.PatientsCollection);
+        _prescriptionsCollection = _database.GetCollection<PrescriptionDataModel>(settings.PrescriptionsCollection);
+        _ordersCollection = _database.GetCollection<PrescriptionOrderDataModel>(settings.OrdersCollection);
+        _usersCollection = _database.GetCollection<UserDataModel>(settings.UsersCollection);
     }
 
     public IPatientRepository Patients =>

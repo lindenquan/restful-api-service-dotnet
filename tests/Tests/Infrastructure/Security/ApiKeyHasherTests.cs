@@ -1,5 +1,5 @@
 using Infrastructure.Persistence.Security;
-using FluentAssertions;
+using Shouldly;
 
 namespace Tests.Infrastructure.Security;
 
@@ -15,7 +15,7 @@ public class ApiKeyHasherTests
         var apiKey = ApiKeyHasher.GenerateApiKey();
 
         // Assert
-        apiKey.Should().NotBeNullOrWhiteSpace();
+        apiKey.ShouldNotBeNullOrWhiteSpace();
     }
 
     [Fact]
@@ -25,9 +25,9 @@ public class ApiKeyHasherTests
         var apiKey = ApiKeyHasher.GenerateApiKey();
 
         // Assert - URL-safe Base64 should not contain +, /, or =
-        apiKey.Should().NotContain("+");
-        apiKey.Should().NotContain("/");
-        apiKey.Should().NotContain("=");
+        apiKey.ShouldNotContain("+");
+        apiKey.ShouldNotContain("/");
+        apiKey.ShouldNotContain("=");
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public class ApiKeyHasherTests
         var key2 = ApiKeyHasher.GenerateApiKey();
 
         // Assert
-        key1.Should().NotBe(key2);
+        key1.ShouldNotBe(key2);
     }
 
     [Theory]
@@ -51,8 +51,8 @@ public class ApiKeyHasherTests
         var apiKey = ApiKeyHasher.GenerateApiKey(length);
 
         // Assert - Base64 encoded string length should be roughly 4/3 of byte length
-        apiKey.Should().NotBeNullOrWhiteSpace();
-        apiKey.Length.Should().BeGreaterThan(0);
+        apiKey.ShouldNotBeNullOrWhiteSpace();
+        apiKey.Length.ShouldBeGreaterThan(0);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class ApiKeyHasherTests
         var hash2 = ApiKeyHasher.HashApiKey(apiKey);
 
         // Assert
-        hash1.Should().Be(hash2);
+        hash1.ShouldBe(hash2);
     }
 
     [Fact]
@@ -79,8 +79,8 @@ public class ApiKeyHasherTests
         var hash = ApiKeyHasher.HashApiKey(apiKey);
 
         // Assert - SHA-256 produces 256 bits = 64 hex characters
-        hash.Should().HaveLength(64);
-        hash.Should().MatchRegex("^[a-f0-9]+$"); // lowercase hex
+        hash.Length.ShouldBe(64);
+        hash.ShouldMatch("^[a-f0-9]+$"); // lowercase hex
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class ApiKeyHasherTests
         var hash = ApiKeyHasher.HashApiKey(apiKey);
 
         // Assert
-        hash.Should().Be(hash.ToLowerInvariant());
+        hash.ShouldBe(hash.ToLowerInvariant());
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class ApiKeyHasherTests
         var hash2 = ApiKeyHasher.HashApiKey("key2");
 
         // Assert
-        hash1.Should().NotBe(hash2);
+        hash1.ShouldNotBe(hash2);
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class ApiKeyHasherTests
         var isValid = ApiKeyHasher.ValidateApiKey(apiKey, hash);
 
         // Assert
-        isValid.Should().BeTrue();
+        isValid.ShouldBeTrue();
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class ApiKeyHasherTests
         var isValid = ApiKeyHasher.ValidateApiKey("wrong-key", hash);
 
         // Assert
-        isValid.Should().BeFalse();
+        isValid.ShouldBeFalse();
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class ApiKeyHasherTests
         var isValid = ApiKeyHasher.ValidateApiKey("mysecretkey", hash);
 
         // Assert
-        isValid.Should().BeFalse();
+        isValid.ShouldBeFalse();
     }
 
     [Theory]
@@ -160,7 +160,7 @@ public class ApiKeyHasherTests
         var prefix = ApiKeyHasher.GetKeyPrefix(apiKey, length);
 
         // Assert
-        prefix.Should().Be(expected);
+        prefix.ShouldBe(expected);
     }
 }
 
