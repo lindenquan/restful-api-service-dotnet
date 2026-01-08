@@ -148,41 +148,49 @@ public abstract class MongoRepository<TEntity, TDataModel> : IRepository<TEntity
         }, ct);
     }
 
-    public void Update(TEntity entity)
+    public async Task UpdateAsync(TEntity entity, CancellationToken ct = default)
     {
-        var dataModel = ToDataModel(entity);
-        dataModel.Metadata.UpdatedAt = DateTime.UtcNow;
-        dataModel.Metadata.UpdatedBy = entity.UpdatedBy;
-        var filter = Builders<TDataModel>.Filter.Eq(e => e.Id, entity.Id);
-        _collection.ReplaceOneAsync(filter, dataModel).GetAwaiter().GetResult();
+        await _resilientExecutor.ExecuteMongoDbAsync(async token =>
+        {
+            var dataModel = ToDataModel(entity);
+            dataModel.Metadata.UpdatedAt = DateTime.UtcNow;
+            dataModel.Metadata.UpdatedBy = entity.UpdatedBy;
+            var filter = Builders<TDataModel>.Filter.Eq(e => e.Id, entity.Id);
+            await _collection.ReplaceOneAsync(filter, dataModel, cancellationToken: token);
+        }, ct);
     }
 
-    public void SoftDelete(TEntity entity, Guid? deletedBy = null)
+    public async Task SoftDeleteAsync(TEntity entity, Guid? deletedBy = null, CancellationToken ct = default)
     {
-        var filter = Builders<TDataModel>.Filter.Eq(e => e.Id, entity.Id);
-        var update = Builders<TDataModel>.Update
-            .Set(e => e.Metadata.IsDeleted, true)
-            .Set(e => e.Metadata.DeletedAt, DateTime.UtcNow)
-            .Set(e => e.Metadata.DeletedBy, deletedBy);
-        _collection.UpdateOneAsync(filter, update).GetAwaiter().GetResult();
+        await _resilientExecutor.ExecuteMongoDbAsync(async token =>
+        {
+            var filter = Builders<TDataModel>.Filter.Eq(e => e.Id, entity.Id);
+            var update = Builders<TDataModel>.Update
+                .Set(e => e.Metadata.IsDeleted, true)
+                .Set(e => e.Metadata.DeletedAt, DateTime.UtcNow)
+                .Set(e => e.Metadata.DeletedBy, deletedBy);
+            await _collection.UpdateOneAsync(filter, update, cancellationToken: token);
+        }, ct);
     }
 
-    public void HardDelete(TEntity entity)
+    public async Task HardDeleteAsync(TEntity entity, CancellationToken ct = default)
     {
-        var filter = Builders<TDataModel>.Filter.Eq(e => e.Id, entity.Id);
-        _collection.DeleteOneAsync(filter).GetAwaiter().GetResult();
+        await _resilientExecutor.ExecuteMongoDbAsync(async token =>
+        {
+            var filter = Builders<TDataModel>.Filter.Eq(e => e.Id, entity.Id);
+            await _collection.DeleteOneAsync(filter, cancellationToken: token);
+        }, ct);
     }
 
-    public void HardDeleteRange(IEnumerable<TEntity> entities)
+    public async Task HardDeleteRangeAsync(IEnumerable<TEntity> entities, CancellationToken ct = default)
     {
-        var ids = entities.Select(e => e.Id).ToList();
-        var filter = Builders<TDataModel>.Filter.In(e => e.Id, ids);
-        _collection.DeleteManyAsync(filter).GetAwaiter().GetResult();
+        await _resilientExecutor.ExecuteMongoDbAsync(async token =>
+        {
+            var ids = entities.Select(e => e.Id).ToList();
+            var filter = Builders<TDataModel>.Filter.In(e => e.Id, ids);
+            await _collection.DeleteManyAsync(filter, cancellationToken: token);
+        }, ct);
     }
-
-    public void Remove(TEntity entity) => HardDelete(entity);
-
-    public void RemoveRange(IEnumerable<TEntity> entities) => HardDeleteRange(entities);
 
     // Pagination implementation
     public async Task<PagedData<TEntity>> GetPagedAsync(

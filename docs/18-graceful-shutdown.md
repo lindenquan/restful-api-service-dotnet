@@ -320,8 +320,8 @@ kubectl exec -it pod/prescription-api-xxx -- kill -QUIT 1
 
 | Document | Description |
 |----------|-------------|
-| [Kestrel Architecture](19-kestrel-architecture.md) | Thread model, request handling |
-| [Memory Management](18-memory-management.md) | GC settings for containers |
+| [Kestrel Architecture](07-kestrel-architecture.md) | Thread model, request handling |
+| [Memory Management](14-memory-management.md) | GC settings for containers |
 | [Rate Limiting](17-rate-limiting.md) | Request throttling during load |
 | [Observability](16-observability.md) | Logging, metrics, tracing |
 

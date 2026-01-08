@@ -32,7 +32,7 @@ public sealed class CancelOrderHandler : IRequestHandler<CancelOrderCommand, boo
             throw new InvalidOperationException("Cannot cancel a completed order");
 
         order.Status = OrderStatus.Cancelled;
-        _unitOfWork.PrescriptionOrders.Update(order);
+        await _unitOfWork.PrescriptionOrders.UpdateAsync(order, ct);
         await _unitOfWork.SaveChangesAsync(ct);
         return true;
     }

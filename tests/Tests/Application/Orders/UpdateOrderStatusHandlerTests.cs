@@ -56,7 +56,7 @@ public class UpdateOrderStatusHandlerTests
 
         // Assert
         result.ShouldNotBeNull();
-        _orderRepoMock.Verify(r => r.Update(It.Is<PrescriptionOrder>(o => o.Status == OrderStatus.Processing)), Times.Once);
+        _orderRepoMock.Verify(r => r.UpdateAsync(It.Is<PrescriptionOrder>(o => o.Status == OrderStatus.Processing), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -73,7 +73,7 @@ public class UpdateOrderStatusHandlerTests
 
         // Assert
         result.ShouldBeNull();
-        _orderRepoMock.Verify(r => r.Update(It.IsAny<PrescriptionOrder>()), Times.Never);
+        _orderRepoMock.Verify(r => r.UpdateAsync(It.IsAny<PrescriptionOrder>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public class UpdateOrderStatusHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _orderRepoMock.Verify(r => r.Update(It.Is<PrescriptionOrder>(o => o.FulfilledDate != null)), Times.Once);
+        _orderRepoMock.Verify(r => r.UpdateAsync(It.Is<PrescriptionOrder>(o => o.FulfilledDate != null), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class UpdateOrderStatusHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _orderRepoMock.Verify(r => r.Update(It.Is<PrescriptionOrder>(o => o.PickupDate != null)), Times.Once);
+        _orderRepoMock.Verify(r => r.UpdateAsync(It.Is<PrescriptionOrder>(o => o.PickupDate != null), It.IsAny<CancellationToken>()), Times.Once);
     }
 }
 

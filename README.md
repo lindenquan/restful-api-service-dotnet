@@ -151,18 +151,25 @@ cp .env.example .env
 |----------|-------------|
 | [Why Clean Architecture](docs/01-why-clean-architecture.md) | N-Layer vs Clean Architecture, DIP explained |
 | [Project Structure](docs/02-project-structure.md) | Folder organization and navigation |
+| [OData Implementation](docs/03-ODATA.md) | Safe OData subset, quick reference, MongoDB compatibility |
 | [API Versioning](docs/04-api-versioning.md) | Version strategy and DTO mapping |
 | [Authentication & Authorization](docs/05-authentication-authorization.md) | API keys, user types, permissions |
 | [Configuration](docs/06-configuration.md) | Environment settings and options |
-| [Testing Strategy](docs/07-testing-strategy.md) | Unit tests vs E2E tests approach |
+| [Kestrel Architecture](docs/07-kestrel-architecture.md) | Kestrel vs Tomcat, async I/O, thread safety by layer |
 | [Docker Deployment](docs/08-docker-deployment.md) | Container setup and deployment |
 | [Caching Strategy](docs/09-caching-strategy.md) | L1/L2 cache configuration and usage |
 | [CancellationToken Best Practices](docs/10-cancellation-tokens.md) | Graceful cancellation and resource management |
 | [Sealed Classes](docs/11-sealed-classes.md) | Performance optimization with sealed keyword |
-| [E2E Testing](docs/14-E2E-testing.md) | Run E2E tests against any environment (local/dev/stage/prod) |
-| [Kestrel Architecture](docs/19-kestrel-architecture.md) | Kestrel vs Tomcat, async I/O, thread safety by layer |
-| [Graceful Shutdown](docs/20-graceful-shutdown.md) | SIGTERM handling, in-flight request completion, K8s integration |
-| **[OData Implementation](docs/21-ODATA.md)** | **Complete guide: Safe OData subset, quick reference, implementation details, MongoDB compatibility, Clean Architecture** |
+| [EditorConfig](docs/12-editorconfig.md) | Code style configuration |
+| [Resilience Strategy](docs/13-resilience-strategy.md) | Retry policies, circuit breakers, timeouts |
+| [Memory Management](docs/14-memory-management.md) | GC configuration for Kubernetes |
+| [Model Layers](docs/15-model-layers.md) | Domain entities, DTOs, data models mapping |
+| [Observability](docs/16-observability.md) | System metrics logging and monitoring |
+| [Rate Limiting](docs/17-rate-limiting.md) | Adaptive rate limiting based on system resources |
+| [Graceful Shutdown](docs/18-graceful-shutdown.md) | SIGTERM handling, in-flight request completion, K8s integration |
+| [Testing Strategy](docs/testing/01-testing-strategy.md) | Unit tests vs E2E tests approach |
+| [E2E Testing](docs/testing/02-e2e-testing.md) | Run E2E tests against any environment (local/dev/stage/prod) |
+| [Load & Concurrency Tests](docs/testing/03-load-concurrency-tests.md) | NBomber load testing and concurrency tests |
 
 ---
 
@@ -266,7 +273,7 @@ REDIS_PORT=6379
 | `prod` | Uses real prod MongoDB/Redis |
 | `eu-prod`, `amr-prod` | Regional production deployments |
 
-See [E2E Testing](docs/14-E2E-testing.md) for more details.
+See [E2E Testing](docs/testing/02-e2e-testing.md) for more details.
 
 ---
 

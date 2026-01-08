@@ -49,6 +49,7 @@ project.fragment.lock.json
 coverage*.json
 coverage*.xml
 coverage/
+reports/
 
 # NCrunch
 *.ncrunch*

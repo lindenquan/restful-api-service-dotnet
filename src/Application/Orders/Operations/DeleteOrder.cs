@@ -37,12 +37,12 @@ public sealed class DeleteOrderHandler : IRequestHandler<DeleteOrderCommand, boo
         if (request.HardDelete)
         {
             // Permanently delete from database
-            _unitOfWork.PrescriptionOrders.HardDelete(order);
+            await _unitOfWork.PrescriptionOrders.HardDeleteAsync(order, ct);
         }
         else
         {
             // Soft delete - mark as deleted
-            _unitOfWork.PrescriptionOrders.SoftDelete(order, request.DeletedBy);
+            await _unitOfWork.PrescriptionOrders.SoftDeleteAsync(order, request.DeletedBy, ct);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);

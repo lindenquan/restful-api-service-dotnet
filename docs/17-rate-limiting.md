@@ -254,7 +254,7 @@ async function fetchWithRetry(url: string, options?: RequestInit): Promise<Respo
 
 ## Best Practices
 
-1. **Set GC heap limits** - Use `DOTNET_GCHeapHardLimitPercent=75` in containers (see `docs/18-memory-management.md`)
+1. **Set GC heap limits** - Use `DOTNET_GCHeapHardLimitPercent=75` in containers (see `14-memory-management.md`)
 2. **Monitor 429 responses** - Track rate limiting frequency for capacity planning
 3. **Use circuit breakers downstream** - Combine with resilience for external calls
 4. **Tune thresholds based on load testing** - Lower thresholds = earlier rejection = more safety margin

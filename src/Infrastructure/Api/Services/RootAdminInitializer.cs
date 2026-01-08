@@ -67,7 +67,7 @@ public class RootAdminInitializer : IHostedService
                 existingRootAdmin.Description = "System root admin - updated on startup";
                 existingRootAdmin.UpdatedBy = null; // System operation - no authenticated user
 
-                unitOfWork.Users.Update(existingRootAdmin);
+                await unitOfWork.Users.UpdateAsync(existingRootAdmin, cancellationToken);
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 _logger.LogWarning(

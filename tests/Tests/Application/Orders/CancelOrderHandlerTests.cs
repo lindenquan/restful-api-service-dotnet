@@ -48,7 +48,7 @@ public class CancelOrderHandlerTests
         // Assert
         result.ShouldBeTrue();
         order.Status.ShouldBe(OrderStatus.Cancelled);
-        _orderRepoMock.Verify(r => r.Update(order), Times.Once);
+        _orderRepoMock.Verify(r => r.UpdateAsync(order, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -65,7 +65,7 @@ public class CancelOrderHandlerTests
 
         // Assert
         result.ShouldBeFalse();
-        _orderRepoMock.Verify(r => r.Update(It.IsAny<PrescriptionOrder>()), Times.Never);
+        _orderRepoMock.Verify(r => r.UpdateAsync(It.IsAny<PrescriptionOrder>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

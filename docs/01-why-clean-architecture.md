@@ -595,10 +595,11 @@ In your project, you can see DIP in action:
 ```
 src/
 ├── Domain/              ← Domain (no dependencies)
-├── Application/           ← Defines IOrderRepository, uses Domain
-│   └── <ProjectReference Include="Domain.csproj" />
 ├── DTOs/                  ← Data transfer objects
 │   └── <ProjectReference Include="Domain.csproj" />
+├── Application/           ← Defines IOrderRepository, uses Domain and DTOs
+│   └── <ProjectReference Include="Domain.csproj" />
+│   └── <ProjectReference Include="DTOs.csproj" />
 └── Infrastructure/              ← IMPLEMENTS interfaces from Application
     └── <ProjectReference Include="Application.csproj" />  ✅ INVERTED!
     └── <ProjectReference Include="Domain.csproj" />
@@ -616,7 +617,7 @@ src/
 | **Database-First Trap** | Domain is designed first. Database is just an implementation detail. |
 | **Testing Tax** | Test 100% of business logic without loading any database libraries. |
 | **Leaky Abstractions** | Database entities never leak upward. Domain uses pure POCOs. |
-| **Side Effects** | Email, Redis, Cloud are all "adapters" that implement interfaces defined in Domain. |
+| **Side Effects** | Email, Redis, Cloud are all "adapters" that implement interfaces defined in Application. |
 | **Big Ball of Mud** | Strict dependency rules enforced by project references. UI cannot reference Database. |
 
 ---
@@ -770,7 +771,7 @@ If the team doesn't understand the principles, they'll fight the architecture an
 **Our project does it correctly:**
 ```
 Application.csproj
-  └── References: Domain.csproj only ✅ (no infrastructure dependencies)
+  └── References: Domain.csproj, DTOs.csproj ✅ (no infrastructure dependencies)
 
 Infrastructure.csproj
   └── References: Application.csproj ✅ (implements interfaces from Application)

@@ -307,6 +307,128 @@ public async Task Handle_WithCancelledToken_ShouldThrowOperationCanceledExceptio
 
 ---
 
+## Complete Async Flow in This Project
+
+This project uses **async/await throughout the entire request pipeline**. No blocking calls.
+
+```
+HTTP Request
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Controller (async)                                          │
+│   public async Task<ActionResult> GetById(Guid id, ct)      │
+│       ↓                                                     │
+│   await _mediator.Send(query, ct)                           │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ MediatR Pipeline (async)                                    │
+│   LoggingBehavior    → await next()                         │
+│   ValidationBehavior → await next()                         │
+│   CachingBehavior    → await next()                         │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Handler (async)                                             │
+│   public async Task<T> Handle(query, ct)                    │
+│       ↓                                                     │
+│   await _unitOfWork.Orders.GetByIdAsync(id, ct)             │
+│   await _unitOfWork.Orders.UpdateAsync(entity, ct)          │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Repository (async)                                          │
+│   public async Task<T?> GetByIdAsync(id, ct)                │
+│       ↓                                                     │
+│   await _resilientExecutor.ExecuteMongoDbAsync(...)         │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Resilient Executor (async) - Retry + Circuit Breaker        │
+│       ↓                                                     │
+│   await _collection.FindAsync(filter, ct)                   │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ MongoDB Driver (async I/O) - Non-blocking network call      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### All I/O Operations Are Async
+
+| Layer | Methods | Async? |
+|-------|---------|--------|
+| Controller | All action methods | ✅ `async Task<ActionResult>` |
+| MediatR Handlers | All handlers | ✅ `async Task<T> Handle()` |
+| Repository Reads | `GetByIdAsync`, `GetAllAsync`, `FindAsync` | ✅ |
+| Repository Writes | `AddAsync`, `UpdateAsync`, `SoftDeleteAsync`, `HardDeleteAsync` | ✅ |
+| Resilient Executor | All methods | ✅ `await pipeline.ExecuteAsync()` |
+| MongoDB Driver | All operations | ✅ Native async |
+
+---
+
+## Sync-over-Async Anti-Pattern
+
+> ⚠️ **Never block on async code!** This causes thread pool starvation and potential deadlocks.
+
+### ❌ DON'T - Blocking Calls
+
+```csharp
+// ❌ NEVER DO THIS - blocks thread pool thread
+public void Update(Entity entity)
+{
+    _collection.ReplaceOneAsync(filter, entity).GetAwaiter().GetResult();
+}
+
+// ❌ NEVER DO THIS - can deadlock in certain contexts
+public Entity GetById(int id)
+{
+    return _collection.FindAsync(id).Result;
+}
+
+// ❌ NEVER DO THIS - blocks thread
+public void Save()
+{
+    _collection.InsertOneAsync(entity).Wait();
+}
+```
+
+### Why Blocking is Dangerous
+
+```
+Thread Pool (limited threads, typically CPU cores × 2)
+├── Thread 1: Request → calls .GetAwaiter().GetResult() → BLOCKED ⏳
+├── Thread 2: Request → calls .GetAwaiter().GetResult() → BLOCKED ⏳
+├── Thread 3: Request → calls .GetAwaiter().GetResult() → BLOCKED ⏳
+└── Thread 4: Request → calls .GetAwaiter().GetResult() → BLOCKED ⏳
+    ↓
+All threads exhausted → New requests queue up → STARVATION or DEADLOCK
+```
+
+### ✅ DO - Async All The Way
+
+```csharp
+// ✅ CORRECT - async all the way down
+public async Task UpdateAsync(Entity entity, CancellationToken ct = default)
+{
+    await _collection.ReplaceOneAsync(filter, entity, cancellationToken: ct);
+}
+
+// ✅ CORRECT - no blocking
+public async Task<Entity?> GetByIdAsync(int id, CancellationToken ct = default)
+{
+    return await _collection.Find(x => x.Id == id).FirstOrDefaultAsync(ct);
+}
+```
+
+### The Rule
+
+> **If an operation does I/O (database, HTTP, file), it MUST be async.**
+>
+> Never use `.Result`, `.Wait()`, or `.GetAwaiter().GetResult()` on Tasks.
+
+---
+
 ## Summary
 
 - ✅ **Always accept** `CancellationToken` in async methods
@@ -316,6 +438,7 @@ public async Task Handle_WithCancelledToken_ShouldThrowOperationCanceledExceptio
 - ✅ **Use default parameter** to make it optional: `CancellationToken ct = default`
 - ✅ **Honor cancellation for READs** - safe to abort, no side effects
 - ⚠️ **Ignore cancellation for WRITEs** - use `CancellationToken.None` to prevent partial writes
+- ❌ **Never use `.Result`, `.Wait()`, `.GetAwaiter().GetResult()`** - causes thread starvation
 
 > **Rule of Thumb:** If a method is `async`, it should accept a `CancellationToken`.
 > For write operations, pass `CancellationToken.None` to ensure the operation completes.

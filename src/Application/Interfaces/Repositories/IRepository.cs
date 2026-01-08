@@ -53,33 +53,35 @@ public interface IRepository<T> where T : class
     // Commands
     Task AddAsync(T entity, CancellationToken ct = default);
     Task AddRangeAsync(IEnumerable<T> entities, CancellationToken ct = default);
-    void Update(T entity);
+
+    /// <summary>
+    /// Update an existing entity in the database.
+    /// </summary>
+    /// <param name="entity">Entity to update</param>
+    /// <param name="ct">Cancellation token</param>
+    Task UpdateAsync(T entity, CancellationToken ct = default);
 
     /// <summary>
     /// Soft delete - marks the entity as deleted without removing from database.
     /// </summary>
     /// <param name="entity">Entity to soft delete</param>
     /// <param name="deletedBy">User ID of the person who deleted</param>
-    void SoftDelete(T entity, Guid? deletedBy = null);
+    /// <param name="ct">Cancellation token</param>
+    Task SoftDeleteAsync(T entity, Guid? deletedBy = null, CancellationToken ct = default);
 
     /// <summary>
     /// Hard delete - permanently removes the entity from the database.
     /// Only admin users should be allowed to call this.
     /// </summary>
     /// <param name="entity">Entity to permanently delete</param>
-    void HardDelete(T entity);
+    /// <param name="ct">Cancellation token</param>
+    Task HardDeleteAsync(T entity, CancellationToken ct = default);
 
     /// <summary>
     /// Hard delete multiple entities permanently.
     /// Only admin users should be allowed to call this.
     /// </summary>
-    void HardDeleteRange(IEnumerable<T> entities);
-
-    // Legacy methods - kept for backward compatibility
-    [Obsolete("Use SoftDelete or HardDelete instead")]
-    void Remove(T entity);
-
-    [Obsolete("Use HardDeleteRange instead")]
-    void RemoveRange(IEnumerable<T> entities);
+    /// <param name="ct">Cancellation token</param>
+    Task HardDeleteRangeAsync(IEnumerable<T> entities, CancellationToken ct = default);
 }
 

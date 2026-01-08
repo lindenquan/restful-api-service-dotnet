@@ -45,7 +45,7 @@ public sealed class UpdateOrderStatusHandler : IRequestHandler<UpdateOrderStatus
         else if (request.Status == OrderStatus.Completed)
             order.PickupDate = DateTime.UtcNow;
 
-        _unitOfWork.PrescriptionOrders.Update(order);
+        await _unitOfWork.PrescriptionOrders.UpdateAsync(order, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
         return await _unitOfWork.PrescriptionOrders.GetByIdWithDetailsAsync(request.OrderId, ct);

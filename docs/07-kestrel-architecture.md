@@ -341,7 +341,7 @@ context.RequestAborted = timeoutCts.Token;
 }
 ```
 
-⚠️ **Important:** This timeout covers request processing (controller + DB + serialization), but **NOT** the time for the client to download the response. Response download time is protected by `MinResponseDataRate` which enforces a minimum speed but not a maximum time. See [Graceful Shutdown - Request Timeout vs Response Download Time](20-graceful-shutdown.md#request-timeout-vs-response-download-time) for details.
+⚠️ **Important:** This timeout covers request processing (controller + DB + serialization), but **NOT** the time for the client to download the response. Response download time is protected by `MinResponseDataRate` which enforces a minimum speed but not a maximum time. See [Graceful Shutdown - Request Timeout vs Response Download Time](18-graceful-shutdown.md#request-timeout-vs-response-download-time) for details.
 
 ---
 
@@ -418,7 +418,7 @@ spec:
       terminationGracePeriodSeconds: 60
 ```
 
-See [Graceful Shutdown](20-graceful-shutdown.md) for full documentation.
+See [Graceful Shutdown](18-graceful-shutdown.md) for full documentation.
 
 ### 2. ⚠️ Large Response Streaming
 
