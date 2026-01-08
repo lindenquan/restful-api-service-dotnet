@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -7,7 +8,10 @@ namespace Application.Patients.Operations;
 /// <summary>
 /// Query to get all patients.
 /// </summary>
-public record GetAllPatientsQuery : IRequest<IEnumerable<Patient>>;
+public record GetAllPatientsQuery : IRequest<IEnumerable<Patient>>, ICacheableQuery
+{
+    public string CacheKey => "patients:all";
+}
 
 /// <summary>
 /// Handler for GetAllPatientsQuery.

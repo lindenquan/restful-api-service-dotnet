@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -18,7 +19,15 @@ public record CreatePrescriptionCommand(
     string PrescriberName,
     DateTime ExpiryDate,
     string? Instructions
-) : IRequest<Prescription>;
+) : IRequest<Prescription>, ICacheInvalidatingCommand
+{
+    public IEnumerable<string> CacheKeysToInvalidate =>
+    [
+        "prescriptions:all",
+        "prescriptions:paged:*",
+        $"patient:{PatientId}" // Patient's prescriptions may be included in patient details
+    ];
+}
 
 /// <summary>
 /// Handler for CreatePrescriptionCommand.

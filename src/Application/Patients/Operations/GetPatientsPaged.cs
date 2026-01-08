@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using DTOs.Shared;
@@ -13,7 +14,10 @@ public sealed record GetPatientsPagedQuery(
     int Top,
     bool IncludeCount = false,
     string? OrderBy = null,
-    bool Descending = false) : IRequest<PagedData<Patient>>;
+    bool Descending = false) : IRequest<PagedData<Patient>>, ICacheableQuery
+{
+    public string CacheKey => $"patients:paged:{Skip}:{Top}:{OrderBy}:{Descending}";
+}
 
 /// <summary>
 /// Handler for GetPatientsPagedQuery.

@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using MediatR;
 
@@ -13,7 +14,17 @@ namespace Application.Orders.Operations;
 public record DeleteOrderCommand(
     Guid OrderId,
     bool HardDelete = false,
-    Guid? DeletedBy = null) : IRequest<bool>;
+    Guid? DeletedBy = null) : IRequest<bool>, ICacheInvalidatingCommand
+{
+    public IEnumerable<string> CacheKeysToInvalidate =>
+    [
+        $"order:{OrderId}",
+        "orders:all",
+        "orders:paged:*",
+        "orders:patient:*",
+        "orders:status:*"
+    ];
+}
 
 /// <summary>
 /// Handler for DeleteOrderCommand.

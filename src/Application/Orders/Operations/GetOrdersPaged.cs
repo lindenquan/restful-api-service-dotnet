@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using DTOs.Shared;
@@ -13,7 +14,10 @@ public sealed record GetOrdersPagedQuery(
     int Top,
     bool IncludeCount = false,
     string? OrderBy = null,
-    bool Descending = false) : IRequest<PagedData<PrescriptionOrder>>;
+    bool Descending = false) : IRequest<PagedData<PrescriptionOrder>>, ICacheableQuery
+{
+    public string CacheKey => $"orders:paged:{Skip}:{Top}:{OrderBy}:{Descending}";
+}
 
 /// <summary>
 /// Handler for GetOrdersPagedQuery.
@@ -48,7 +52,10 @@ public sealed record GetOrdersByPatientPagedQuery(
     int Top,
     bool IncludeCount = false,
     string? OrderBy = null,
-    bool Descending = false) : IRequest<PagedData<PrescriptionOrder>>;
+    bool Descending = false) : IRequest<PagedData<PrescriptionOrder>>, ICacheableQuery
+{
+    public string CacheKey => $"orders:patient:{PatientId}:paged:{Skip}:{Top}:{OrderBy}:{Descending}";
+}
 
 /// <summary>
 /// Handler for GetOrdersByPatientPagedQuery.

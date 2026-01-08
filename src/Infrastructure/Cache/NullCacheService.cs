@@ -27,6 +27,11 @@ public sealed class NullCacheService : ICacheService
         // No-op
     }
 
+    public void RemoveByPrefix(string prefix)
+    {
+        // No-op
+    }
+
     public bool Exists(string key) => false;
 
     public T GetOrAdd<T>(string key, Func<T> factory, TimeSpan? expiry = null) => factory();

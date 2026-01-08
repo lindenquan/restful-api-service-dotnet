@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -7,7 +8,17 @@ namespace Application.Orders.Operations;
 /// <summary>
 /// Command to cancel a prescription order.
 /// </summary>
-public record CancelOrderCommand(Guid OrderId) : IRequest<bool>;
+public record CancelOrderCommand(Guid OrderId) : IRequest<bool>, ICacheInvalidatingCommand
+{
+    public IEnumerable<string> CacheKeysToInvalidate =>
+    [
+        $"order:{OrderId}",
+        "orders:all",
+        "orders:paged:*",
+        "orders:patient:*",
+        "orders:status:*"
+    ];
+}
 
 /// <summary>
 /// Handler for CancelOrderCommand.

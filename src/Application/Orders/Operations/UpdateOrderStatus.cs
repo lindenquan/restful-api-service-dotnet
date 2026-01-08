@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -13,7 +14,17 @@ public record UpdateOrderStatusCommand(
     OrderStatus Status,
     string? Notes,
     Guid? UpdatedBy = null
-) : IRequest<PrescriptionOrder?>;
+) : IRequest<PrescriptionOrder?>, ICacheInvalidatingCommand
+{
+    public IEnumerable<string> CacheKeysToInvalidate =>
+    [
+        $"order:{OrderId}",
+        "orders:all",
+        "orders:paged:*",
+        "orders:patient:*",
+        "orders:status:*"
+    ];
+}
 
 /// <summary>
 /// Handler for UpdateOrderStatusCommand.

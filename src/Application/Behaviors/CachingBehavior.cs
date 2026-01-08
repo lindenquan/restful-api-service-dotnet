@@ -87,8 +87,19 @@ public sealed class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRe
     {
         foreach (var key in command.CacheKeysToInvalidate)
         {
-            _cache.Remove(key);
-            _logger.LogDebug("Invalidated cache key: {CacheKey}", key);
+            if (key.EndsWith('*'))
+            {
+                // Pattern-based invalidation (prefix match)
+                var prefix = key[..^1]; // Remove trailing '*'
+                _cache.RemoveByPrefix(prefix);
+                _logger.LogDebug("Invalidated cache keys with prefix: {Prefix}", prefix);
+            }
+            else
+            {
+                // Exact key invalidation
+                _cache.Remove(key);
+                _logger.LogDebug("Invalidated cache key: {CacheKey}", key);
+            }
         }
     }
 }

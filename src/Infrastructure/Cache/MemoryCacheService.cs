@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Application.Interfaces.Services;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -13,6 +14,7 @@ public sealed class MemoryCacheService : ICacheService
     private readonly IMemoryCache _cache;
     private readonly CacheSettings _settings;
     private readonly ILogger<MemoryCacheService> _logger;
+    private readonly ConcurrentDictionary<string, byte> _keys = new();
 
     public MemoryCacheService(
         IMemoryCache cache,
@@ -40,6 +42,13 @@ public sealed class MemoryCacheService : ICacheService
             options.AbsoluteExpirationRelativeToNow = actualExpiry.Value;
         }
 
+        // Track the key and register callback to remove it when evicted
+        options.RegisterPostEvictionCallback((evictedKey, _, _, _) =>
+        {
+            _keys.TryRemove(evictedKey.ToString()!, out _);
+        });
+
+        _keys.TryAdd(key, 0);
         _cache.Set(key, value, options);
     }
 
@@ -56,7 +65,17 @@ public sealed class MemoryCacheService : ICacheService
 
     public void Remove(string key)
     {
+        _keys.TryRemove(key, out _);
         _cache.Remove(key);
+    }
+
+    public void RemoveByPrefix(string prefix)
+    {
+        var keysToRemove = _keys.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)).ToList();
+        foreach (var key in keysToRemove)
+        {
+            Remove(key);
+        }
     }
 
     public bool Exists(string key)

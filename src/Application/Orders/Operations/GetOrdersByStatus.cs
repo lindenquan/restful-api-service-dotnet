@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -8,7 +9,10 @@ namespace Application.Orders.Operations;
 /// Query to get prescription orders by status.
 /// Controllers map to/from versioned DTOs.
 /// </summary>
-public record GetOrdersByStatusQuery(OrderStatus Status) : IRequest<IEnumerable<PrescriptionOrder>>;
+public record GetOrdersByStatusQuery(OrderStatus Status) : IRequest<IEnumerable<PrescriptionOrder>>, ICacheableQuery
+{
+    public string CacheKey => $"orders:status:{Status}";
+}
 
 /// <summary>
 /// Handler for GetOrdersByStatusQuery.

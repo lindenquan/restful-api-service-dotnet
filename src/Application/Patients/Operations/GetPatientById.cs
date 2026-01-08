@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -7,7 +8,10 @@ namespace Application.Patients.Operations;
 /// <summary>
 /// Query to get a patient by ID.
 /// </summary>
-public record GetPatientByIdQuery(Guid Id) : IRequest<Patient?>;
+public record GetPatientByIdQuery(Guid Id) : IRequest<Patient?>, ICacheableQuery
+{
+    public string CacheKey => $"patient:{Id}";
+}
 
 /// <summary>
 /// Handler for GetPatientByIdQuery.

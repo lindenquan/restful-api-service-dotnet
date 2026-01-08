@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -7,7 +8,10 @@ namespace Application.Prescriptions.Operations;
 /// <summary>
 /// Query to get all prescriptions.
 /// </summary>
-public record GetAllPrescriptionsQuery : IRequest<IEnumerable<Prescription>>;
+public record GetAllPrescriptionsQuery : IRequest<IEnumerable<Prescription>>, ICacheableQuery
+{
+    public string CacheKey => "prescriptions:all";
+}
 
 /// <summary>
 /// Handler for GetAllPrescriptionsQuery.

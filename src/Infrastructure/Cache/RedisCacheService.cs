@@ -161,6 +161,32 @@ public sealed class RedisCacheService : ICacheService, IDisposable
         }
     }
 
+    public void RemoveByPrefix(string prefix)
+    {
+        try
+        {
+            var fullPrefix = GetFullKey(prefix);
+            // Use SCAN to find all keys matching the prefix pattern
+            var server = _redis.GetServer(_redis.GetEndPoints().First());
+            var keys = server.Keys(pattern: $"{fullPrefix}*").ToArray();
+
+            if (keys.Length > 0)
+            {
+                _database.KeyDelete(keys);
+                // Publish invalidation for each key
+                foreach (var key in keys)
+                {
+                    var shortKey = key.ToString().Replace(_settings.InstanceName, "");
+                    PublishInvalidation(shortKey);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove L2 cache keys with prefix {Prefix}. Continuing without L2 cache.", prefix);
+        }
+    }
+
     public bool Exists(string key)
     {
         try

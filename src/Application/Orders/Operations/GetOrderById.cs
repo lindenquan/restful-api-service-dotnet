@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -8,7 +9,10 @@ namespace Application.Orders.Operations;
 /// Query to get a prescription order by ID.
 /// Controllers map to/from versioned DTOs.
 /// </summary>
-public record GetOrderByIdQuery(Guid OrderId) : IRequest<PrescriptionOrder?>;
+public record GetOrderByIdQuery(Guid OrderId) : IRequest<PrescriptionOrder?>, ICacheableQuery
+{
+    public string CacheKey => $"order:{OrderId}";
+}
 
 /// <summary>
 /// Handler for GetOrderByIdQuery.

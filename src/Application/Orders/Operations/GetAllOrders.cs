@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -8,7 +9,10 @@ namespace Application.Orders.Operations;
 /// Query to get all prescription orders.
 /// Controllers map to/from versioned DTOs.
 /// </summary>
-public record GetAllOrdersQuery : IRequest<IEnumerable<PrescriptionOrder>>;
+public record GetAllOrdersQuery : IRequest<IEnumerable<PrescriptionOrder>>, ICacheableQuery
+{
+    public string CacheKey => "orders:all";
+}
 
 /// <summary>
 /// Handler for GetAllOrdersQuery.

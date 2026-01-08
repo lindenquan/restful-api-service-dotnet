@@ -100,6 +100,15 @@ public sealed class HybridCacheService : ICacheService, IDisposable
         _l2Cache?.Remove(key);
     }
 
+    public void RemoveByPrefix(string prefix)
+    {
+        // Remove from L1
+        _l1Cache?.RemoveByPrefix(prefix);
+
+        // Remove from L2
+        _l2Cache?.RemoveByPrefix(prefix);
+    }
+
     public bool Exists(string key)
     {
         // Check L1 first

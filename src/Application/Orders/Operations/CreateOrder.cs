@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -13,7 +14,17 @@ public record CreateOrderCommand(
     Guid PrescriptionId,
     string? Notes,
     Guid? CreatedBy = null
-) : IRequest<PrescriptionOrder>;
+) : IRequest<PrescriptionOrder>, ICacheInvalidatingCommand
+{
+    public IEnumerable<string> CacheKeysToInvalidate =>
+    [
+        "orders:all",
+        "orders:paged:*",
+        $"orders:patient:{PatientId}",
+        $"orders:patient:{PatientId}:paged:*",
+        "orders:status:*"
+    ];
+}
 
 /// <summary>
 /// Handler for CreateOrderCommand.

@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -8,7 +9,10 @@ namespace Application.Orders.Operations;
 /// Query to get prescription orders by patient ID.
 /// Controllers map to/from versioned DTOs.
 /// </summary>
-public record GetOrdersByPatientQuery(Guid PatientId) : IRequest<IEnumerable<PrescriptionOrder>>;
+public record GetOrdersByPatientQuery(Guid PatientId) : IRequest<IEnumerable<PrescriptionOrder>>, ICacheableQuery
+{
+    public string CacheKey => $"orders:patient:{PatientId}";
+}
 
 /// <summary>
 /// Handler for GetOrdersByPatientQuery.

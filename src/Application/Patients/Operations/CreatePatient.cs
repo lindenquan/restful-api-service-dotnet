@@ -1,3 +1,4 @@
+using Application.Interfaces;
 using Application.Interfaces.Repositories;
 using Domain;
 using MediatR;
@@ -14,7 +15,14 @@ public record CreatePatientCommand(
     string Email,
     string? Phone,
     DateTime DateOfBirth
-) : IRequest<Patient>;
+) : IRequest<Patient>, ICacheInvalidatingCommand
+{
+    public IEnumerable<string> CacheKeysToInvalidate =>
+    [
+        "patients:all",
+        "patients:paged:*"
+    ];
+}
 
 /// <summary>
 /// Handler for CreatePatientCommand.
