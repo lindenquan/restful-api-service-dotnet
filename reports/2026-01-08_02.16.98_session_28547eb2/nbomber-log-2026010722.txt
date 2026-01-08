@@ -1,0 +1,15 @@
+2026-01-07 22:16:32.032 -04:00 [INF] [ThreadId:5] NBomber 6.0.0 started a new session: 2026-01-08_02.16.98_session_28547eb2
+2026-01-07 22:16:32.061 -04:00 [INF] [ThreadId:5] NBomber started as single node
+2026-01-07 22:16:32.063 -04:00 [INF] [ThreadId:5] License validation....
+2026-01-07 22:16:32.063 -04:00 [WRN] [ThreadId:5] THIS VERSION IS FREE ONLY FOR PERSONAL USE. You can't use it for an organization.
+2026-01-07 22:16:32.076 -04:00 [INF] [ThreadId:5] Reports folder: C:\Users\lindenq\Repo\Others\restful-api-service-dotnet\tests\Tests.LoadTests\bin\Debug\net10.0\reports\2026-01-08_02.16.98_session_28547eb2
+2026-01-07 22:16:32.077 -04:00 [INF] [ThreadId:5] Plugins: no plugins were loaded
+2026-01-07 22:16:32.077 -04:00 [INF] [ThreadId:5] Reporting sinks: no reporting sinks were loaded
+2026-01-07 22:16:32.077 -04:00 [INF] [ThreadId:5] Starting init...
+2026-01-07 22:16:32.082 -04:00 [INF] [ThreadId:5] Target scenarios: load_test_reads, load_test_writes, load_test_mixed
+2026-01-07 22:16:32.083 -04:00 [INF] [ThreadId:5] Init finished
+2026-01-07 22:16:32.096 -04:00 [INF] [ThreadId:5] Starting bombing...
+2026-01-07 22:16:51.329 -04:00 [WRN] [ThreadId:15] Stopping test early: Stopping test because of too many fails. Scenario 'load_test_reads' contains '5245' fails.
+2026-01-07 22:16:55.346 -04:00 [INF] [ThreadId:20] Calculating final statistics...
+2026-01-07 22:16:55.725 -04:00 [INF] [ThreadId:20] Reports saved in folder: C:\Users\lindenq\Repo\Others\restful-api-service-dotnet\reports\2026-01-08_02.16.98_session_28547eb2
+2026-01-07 22:16:55.726 -04:00 [WRN] [ThreadId:20] THIS VERSION IS FREE ONLY FOR PERSONAL USE. You can't use it for an organization.

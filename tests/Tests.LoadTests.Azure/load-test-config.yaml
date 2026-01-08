@@ -1,0 +1,54 @@
+# Azure Load Testing Configuration
+# https://learn.microsoft.com/en-us/azure/load-testing/
+
+version: v0.1
+testId: prescription-api-load-test
+displayName: Prescription Order API Load Test
+description: Load test for the Prescription Order API - Mixed workload (80% reads, 20% writes)
+
+# Test plan configuration
+testPlan: load-test.jmx
+
+# Engine instances (each can simulate ~250 concurrent users)
+# 4 engines = ~1000 concurrent users
+engineInstances: 4
+
+# Configuration for test execution
+configurationFiles:
+  - load-test.jmx
+
+# Environment variables passed to JMeter
+# These can be overridden in Azure Portal or CI/CD
+env:
+  - name: threads
+    value: "250"          # Users per engine (250 × 4 = 1000 total)
+  - name: ramp_time
+    value: "60"           # 60 seconds to ramp up
+  - name: duration
+    value: "300"          # 5 minutes sustained load
+
+# Secrets (referenced from Azure Key Vault)
+secrets:
+  - name: api_key
+    value: "${API_KEY}"   # Set via Azure Key Vault or CI/CD secret
+
+# Pass/Fail criteria
+# Tests will fail if these thresholds are exceeded
+failureCriteria:
+  - avg(response_time_ms) > 500           # Average response time > 500ms
+  - percentage(error) > 5                  # Error rate > 5%
+  - p90(response_time_ms) > 1000          # p90 latency > 1 second
+  - p95(response_time_ms) > 2000          # p95 latency > 2 seconds
+
+# Auto-stop configuration
+# Stops the test early if error rate is too high
+autoStop:
+  errorPercentage: 10
+  timeWindow: 60
+
+# Key Vault configuration (optional)
+# keyVaultReferenceIdentity: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identity}
+
+# Subnet configuration for private endpoints (optional)
+# subnetId: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Network/virtualNetworks/{vnet}/subnets/{subnet}
+

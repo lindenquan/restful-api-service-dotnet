@@ -1,13 +1,47 @@
 # Testing Strategy
 
+> **See also**: [02-e2e-testing.md](./02-e2e-testing.md) and [03-load-concurrency-tests.md](./03-load-concurrency-tests.md) for detailed documentation.
+
 ## Overview
 
-This project uses a **two-tier testing strategy**:
+This project uses a **three-tier testing strategy**:
 
-| Test Type | Location | Purpose |
-|-----------|----------|---------|
-| **Unit Tests** | `tests/Tests/` | Test business logic in isolation (including in-memory cache) |
-| **API E2E Tests** | `tests/Tests.Api.E2E/` | Test API endpoints against real MongoDB + Redis |
+| Test Type | Location | Purpose | Runs Against |
+|-----------|----------|---------|--------------|
+| **Unit Tests** | `tests/Tests/` | Test business logic in isolation | Mocks |
+| **API E2E Tests** | `tests/Tests.Api.E2E/` | Test API endpoints | Real MongoDB + Redis |
+| **Load/Concurrency Tests** | `tests/Tests.LoadTests/` | Measure performance, verify thread safety | Real API service |
+
+## Testing Pyramid
+
+```
+                    ┌───────────────┐
+                    │  Load Tests   │  ← Few, slow, expensive
+                    │   (NBomber)   │     Measure performance & concurrency
+                    ├───────────────┤
+                    │   API E2E     │  ← Some, medium speed
+                    │    Tests      │     Test real integrations
+                    ├───────────────┤
+                    │               │
+                    │  Unit Tests   │  ← Many, fast, cheap
+                    │               │     Test business logic
+                    └───────────────┘
+```
+
+## Quick Reference
+
+```powershell
+# Unit tests
+dotnet test tests/Tests
+
+# E2E tests (requires Docker)
+docker compose up -d
+dotnet test tests/Tests.Api.E2E
+
+# Load/Concurrency tests (requires Docker)
+docker compose up -d
+dotnet run --project tests/Tests.LoadTests
+```
 
 ---
 
@@ -272,21 +306,45 @@ public async Task UpdateOrder_ShouldInvalidateCache()
 
 ---
 
-## Testing Pyramid
+## Load & Concurrency Tests
 
+Load and concurrency tests use **NBomber** to test the API under realistic load conditions.
+
+### What We Test
+
+| Scenario | Type | Purpose |
+|----------|------|---------|
+| `load_test_reads` | Load | Measure read throughput & latency |
+| `load_test_writes` | Load | Measure write throughput & latency |
+| `load_test_mixed` | Load | 80% reads, 20% writes (realistic) |
+| `concurrency_test_writes` | Concurrency | Verify no duplicate IDs under parallel writes |
+| `concurrency_test_read_after_write` | Concurrency | Verify no stale cache reads |
+
+### Running Load Tests
+
+```powershell
+# Start infrastructure
+docker compose up -d
+
+# Run all tests
+dotnet run --project tests/Tests.LoadTests
+
+# Run only load tests
+dotnet run --project tests/Tests.LoadTests -- load
+
+# Run only concurrency tests
+dotnet run --project tests/Tests.LoadTests -- concurrency
 ```
-        ┌───────────┐
-        │  API E2E  │  ← Few, slow, expensive
-        │   Tests   │     Test API → MongoDB + Redis
-        ├───────────┤     Direct HTTP calls
-        │           │
-        │   Unit    │  ← Many, fast, cheap
-        │   Tests   │     Test business logic + L1 cache
-        │           │
-        └───────────┘
-```
 
+### Why Load Testing Matters
 
+Unit tests run sequentially and can't catch:
+- Connection pool exhaustion
+- Race conditions under parallel access
+- Cache stampede scenarios
+- Rate limiting edge cases
+
+> **See**: [03-load-concurrency-tests.md](./03-load-concurrency-tests.md) for detailed documentation.
 
 ---
 

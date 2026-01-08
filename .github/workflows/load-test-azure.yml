@@ -1,0 +1,130 @@
+# Azure Load Testing Workflow
+# Runs load tests against the deployed API using Azure Load Testing service
+#
+# Prerequisites:
+# 1. Azure Load Testing resource created
+# 2. GitHub secrets configured:
+#    - AZURE_CREDENTIALS: Service principal credentials (JSON)
+#    - AZURE_LOAD_TEST_RESOURCE: Name of the Azure Load Testing resource
+#    - AZURE_RESOURCE_GROUP: Resource group name
+#    - API_BASE_URL: URL of the API to test
+#    - API_KEY: API key for authentication
+
+name: Azure Load Test
+
+on:
+  # Manual trigger with parameters
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test'
+        required: true
+        default: 'stage'
+        type: choice
+        options:
+          - dev
+          - stage
+          - prod
+      virtual_users:
+        description: 'Number of virtual users'
+        required: true
+        default: '1000'
+        type: string
+      duration_seconds:
+        description: 'Test duration in seconds'
+        required: true
+        default: '300'
+        type: string
+
+  # Scheduled runs (weekly on Sunday at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * 0'
+
+  # Run on releases (optional)
+  # release:
+  #   types: [published]
+
+env:
+  AZURE_LOAD_TEST_CONFIG: tests/Tests.LoadTests.Azure/load-test-config.yaml
+
+jobs:
+  load-test:
+    name: Run Azure Load Test
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'stage' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Calculate engine instances
+        id: calc
+        run: |
+          # Each engine handles ~250 users
+          users=${{ github.event.inputs.virtual_users || '1000' }}
+          engines=$(( (users + 249) / 250 ))
+          echo "engines=$engines" >> $GITHUB_OUTPUT
+          echo "threads_per_engine=$(( users / engines ))" >> $GITHUB_OUTPUT
+
+      - name: Run Azure Load Test
+        uses: azure/load-testing@v1
+        with:
+          loadTestConfigFile: ${{ env.AZURE_LOAD_TEST_CONFIG }}
+          loadTestResource: ${{ secrets.AZURE_LOAD_TEST_RESOURCE }}
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          env: |
+            [
+              { "name": "base_url", "value": "${{ secrets.API_BASE_URL }}" },
+              { "name": "protocol", "value": "https" },
+              { "name": "threads", "value": "${{ steps.calc.outputs.threads_per_engine }}" },
+              { "name": "duration", "value": "${{ github.event.inputs.duration_seconds || '300' }}" },
+              { "name": "ramp_time", "value": "60" }
+            ]
+          secrets: |
+            [
+              { "name": "api_key", "value": "${{ secrets.API_KEY }}" }
+            ]
+
+      - name: Upload load test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-results-${{ github.run_id }}
+          path: ${{ github.workspace }}/loadTest
+
+      - name: Post results to PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const resultsPath = '${{ github.workspace }}/loadTest/results.json';
+
+            if (fs.existsSync(resultsPath)) {
+              const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+              
+              const comment = `## 🚀 Load Test Results
+              
+              | Metric | Value |
+              |--------|-------|
+              | **Total Requests** | ${results.totalRequests || 'N/A'} |
+              | **Avg Response Time** | ${results.avgResponseTime || 'N/A'} ms |
+              | **P95 Response Time** | ${results.p95ResponseTime || 'N/A'} ms |
+              | **Error Rate** | ${results.errorRate || 'N/A'}% |
+              | **Throughput** | ${results.throughput || 'N/A'} req/sec |
+              
+              [View full report in Azure Portal](https://portal.azure.com)`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+

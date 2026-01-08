@@ -10,18 +10,23 @@
     The command to execute.
 
 .PARAMETER Env
-    Environment for test-api-e2e command (local, dev, stage). Default: local
+    Environment for test-api-e2e and test-load commands (local, dev, stage). Default: local
+
+.PARAMETER LoadTestArgs
+    Arguments to pass to load tests (e.g., 'load', 'concurrency', or empty for all)
 
 .EXAMPLE
     ./build.ps1 run
     ./build.ps1 test-api-e2e -Env dev
+    ./build.ps1 test-load
+    ./build.ps1 test-load -LoadTestArgs concurrency
 #>
 
 param(
     [Parameter(Position = 0)]
     [ValidateSet(
         'run', 'local', 'dev', 'stage',
-        'build', 'test', 'test-coverage', 'test-api-e2e',
+        'build', 'test', 'test-coverage', 'test-api-e2e', 'test-load',
         'format', 'clean', 'restore',
         'docker-up', 'docker-up-api', 'docker-down',
         'docker-build-lambda', 'docker-build-eks', 'docker-build-all',
@@ -31,7 +36,10 @@ param(
 
     [Parameter()]
     [ValidateSet('local', 'dev', 'stage')]
-    [string]$Env = 'local'
+    [string]$Env = 'local',
+
+    [Parameter()]
+    [string]$LoadTestArgs = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -143,6 +151,33 @@ switch ($Command) {
         Write-Host "`n[TIME] Total E2E test time: $(Format-Duration $totalStopwatch.Elapsed)" -ForegroundColor Magenta
     }
 
+    'test-load' {
+        $totalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        if ($Env -eq 'local') {
+            # For local load tests, start the full API stack in Docker
+            & $PSCommandPath docker-up-api
+        }
+        try {
+            $loadTestArgsDisplay = if ($LoadTestArgs) { " ($LoadTestArgs)" } else { " (all)" }
+            Invoke-BuildCommand -Name "Run load tests$loadTestArgsDisplay" -ScriptBlock {
+                if ($LoadTestArgs) {
+                    dotnet run --project tests/Tests.LoadTests -- $LoadTestArgs
+                } else {
+                    dotnet run --project tests/Tests.LoadTests
+                }
+            }.GetNewClosure()
+        }
+        finally {
+            if ($Env -eq 'local') {
+                Invoke-BuildCommand -Name "Stop Docker services" -ScriptBlock {
+                    docker compose down
+                }
+            }
+        }
+        $totalStopwatch.Stop()
+        Write-Host "`n[TIME] Total load test time: $(Format-Duration $totalStopwatch.Elapsed)" -ForegroundColor Magenta
+    }
+
     'format' {
         Invoke-BuildCommand -Name "Format code" -ScriptBlock {
             dotnet format
@@ -195,7 +230,6 @@ switch ($Command) {
     }
     'ultimate' {
         $totalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $apiProcess = $null
         Write-Header "Starting Complete CI/CD Pipeline"
 
         Write-Step 1 "Clean build artifacts"
@@ -212,44 +246,23 @@ switch ($Command) {
             dotnet test tests/Tests --verbosity minimal
         }
 
-        Write-Step 5 "Start MongoDB + Redis"
-        & $PSCommandPath docker-up
-
-        Write-Step 6 "Start API (background)"
-        $apiProcess = Start-Process -FilePath "dotnet" -ArgumentList "run", "--project", "src/Infrastructure" -PassThru -WindowStyle Hidden
-        Write-Host "  Waiting for API to be ready..." -ForegroundColor Gray
-        $maxRetries = 30
-        $ready = $false
-        for ($i = 0; $i -lt $maxRetries; $i++) {
-            Start-Sleep -Seconds 1
-            try {
-                $response = Invoke-WebRequest -Uri "http://localhost:8080/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
-                if ($response.StatusCode -eq 200) {
-                    Write-Host "  API is ready (PID: $($apiProcess.Id))" -ForegroundColor Green
-                    $ready = $true
-                    break
-                }
-            } catch { }
-        }
-        if (-not $ready) {
-            throw "API failed to start within timeout"
-        }
+        Write-Step 5 "Start Docker (MongoDB + Redis + API)"
+        & $PSCommandPath docker-up-api
 
         try {
-            Write-Step 7 "Run API E2E tests"
+            Write-Step 6 "Run API E2E tests"
             $env:ASPNETCORE_ENVIRONMENT = 'local'
             Invoke-BuildCommand -Name "Run API E2E tests" -ScriptBlock {
                 dotnet test tests/Tests.Api.E2E --verbosity minimal
             }
+
+            Write-Step 7 "Run load tests (CI mode)"
+            Invoke-BuildCommand -Name "Run load tests" -ScriptBlock {
+                dotnet run --project tests/Tests.LoadTests -- --ci
+            }
         }
         finally {
-            Write-Step 8 "Stop API"
-            if ($apiProcess -and -not $apiProcess.HasExited) {
-                Stop-Process -Id $apiProcess.Id -Force -ErrorAction SilentlyContinue
-                Write-Host "  API stopped" -ForegroundColor Green
-            }
-
-            Write-Step 9 "Stop Docker services"
+            Write-Step 8 "Stop Docker services"
             & $PSCommandPath docker-down
         }
 
@@ -262,8 +275,8 @@ switch ($Command) {
         Write-Host "  - Build: [OK]" -ForegroundColor Green
         Write-Host "  - Unit Tests: [OK]" -ForegroundColor Green
         Write-Host "  - Docker: [OK]" -ForegroundColor Green
-        Write-Host "  - API: [OK]" -ForegroundColor Green
         Write-Host "  - E2E Tests: [OK]" -ForegroundColor Green
+        Write-Host "  - Load Tests: [OK]" -ForegroundColor Green
     }
     'help' {
         $helpText = @'
@@ -282,6 +295,9 @@ API Commands:
   test-api-e2e        Run API E2E tests against real API service
                       -Env local: Tests against API in Docker (localhost:8080)
                       -Env dev|stage: Tests against deployed API (requires API_BASE_URL)
+  test-load           Run load/concurrency tests with NBomber
+                      -Env local: Tests against API in Docker (localhost:8080)
+                      -LoadTestArgs: 'load' | 'concurrency' | '' (all)
   format              Format code
   clean               Clean build artifacts
   restore             Restore packages
@@ -294,13 +310,17 @@ Docker Commands:
   docker-build-eks    Build AWS EKS image
   docker-build-all    Build all Docker images
 
-Test Commands:
-  ultimate            Run complete CI/CD pipeline
+Complete Pipeline:
+  ultimate            Run complete CI/CD pipeline:
+                      clean → format → build → unit tests →
+                      docker-up-api → E2E tests → load tests (CI mode) → docker-down
 
 Examples:
   ./build.ps1 run
   ./build.ps1 test
   ./build.ps1 test-api-e2e -Env dev
+  ./build.ps1 test-load
+  ./build.ps1 test-load -LoadTestArgs concurrency
   ./build.ps1 ultimate
 '@
         Write-Host $helpText
