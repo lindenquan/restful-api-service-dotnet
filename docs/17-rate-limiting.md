@@ -252,6 +252,88 @@ async function fetchWithRetry(url: string, options?: RequestInit): Promise<Respo
 
 **Middleware:** `src/Infrastructure/Api/Middleware/RateLimitingMiddleware.cs`
 
+## MongoDB Pool Size Coordination
+
+Rate limiting should trigger **before** MongoDB connection pool is exhausted. If the pool runs out first, clients get `500 Internal Server Error` or timeout errors instead of a clear `429 Too Many Requests` with retry guidance.
+
+### The Problem
+
+```
+Without proper coordination:
+
+  Load increases → Pool exhausted → 500 errors (confusing!)
+
+With proper coordination:
+
+  Load increases → Rate limit triggers → 429 (clear signal to back off)
+                   ↓
+                   Pool never exhausted
+```
+
+### Sizing Formula
+
+**Rate limit should be lower than pool capacity:**
+
+```
+PermitLimit + QueueLimit < MaxPoolSize × SafetyFactor
+```
+
+Where `SafetyFactor` accounts for:
+- Connection overhead (health checks, background tasks)
+- Burst headroom
+- Typically 0.7-0.8 (70-80% of pool)
+
+### Example Configurations
+
+| Environment | MaxPoolSize | PermitLimit | QueueLimit | Total Concurrent | Buffer |
+|-------------|-------------|-------------|------------|------------------|--------|
+| Development | 25 | 15 | 5 | 20 | 5 connections |
+| Staging | 50 | 35 | 15 | 50 | 0 (tight) |
+| Production | 100 | 60 | 30 | 90 | 10 connections |
+
+### Configuration Example
+
+```json
+{
+  "MongoDB": {
+    "MaxPoolSize": 100,
+    "MinPoolSize": 10,
+    "WaitQueueTimeoutSeconds": 5
+  },
+  "RateLimiting": {
+    "Enabled": true,
+    "PermitLimit": 60,
+    "QueueLimit": 30
+  }
+}
+```
+
+With this config:
+- Max 90 concurrent requests allowed (60 + 30)
+- 100 connections available
+- 10 connection buffer for overhead
+- If load exceeds 90 concurrent → 429 returned
+- Pool never exhausted → no 500 errors
+
+### Why 429 is Better Than 500
+
+| Aspect | 429 Too Many Requests | 500 Internal Server Error |
+|--------|----------------------|---------------------------|
+| **Client action** | Retry after delay (clear) | Unknown - maybe retry? |
+| **Retry-After header** | ✅ Included | ❌ Not applicable |
+| **Load balancer** | Routes to other instances | May keep routing here |
+| **Monitoring** | Expected under load | Alerts! Something is broken |
+| **Root cause** | Capacity limit reached | Bug? Timeout? Connection issue? |
+
+### Detecting Misconfiguration
+
+**Symptoms of pool exhaustion before rate limiting:**
+- `MongoWaitQueueFullException` in logs
+- `TimeoutException` from MongoDB driver
+- 500 errors during load tests before seeing 429s
+
+**Fix:** Lower `PermitLimit` and `QueueLimit` to stay within pool capacity.
+
 ## Best Practices
 
 1. **Set GC heap limits** - Use `DOTNET_GCHeapHardLimitPercent=75` in containers (see `14-memory-management.md`)
@@ -259,4 +341,5 @@ async function fetchWithRetry(url: string, options?: RequestInit): Promise<Respo
 3. **Use circuit breakers downstream** - Combine with resilience for external calls
 4. **Tune thresholds based on load testing** - Lower thresholds = earlier rejection = more safety margin
 5. **Check logs for pressure events** - Middleware logs when rate limiting activates/deactivates
+6. **Coordinate pool size with rate limits** - Rate limit should trigger before pool exhaustion (see above)
 

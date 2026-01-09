@@ -81,12 +81,17 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: local
       Kestrel__Endpoints__Http__Url: http://+:8080
+      # MongoDB settings (pool size increased for load testing)
       MongoDB__ConnectionString: mongodb://mongodb:27017
       MongoDB__Username: ${MongoDB__Username}
       MongoDB__Password: ${MongoDB__Password}
       MongoDB__DatabaseName: ${MONGO_DATABASE}
-      Cache__L2__ConnectionString: redis:${REDIS_PORT}
-      Cache__L2__Enabled: "true"
+      MongoDB__MaxPoolSize: "100"
+      MongoDB__MinPoolSize: "10"
+      # Cache settings (updated from L1/L2 to Local/Remote)
+      Cache__Remote__ConnectionString: redis:${REDIS_PORT}
+      Cache__Remote__Enabled: "true"
+      Cache__Local__Enabled: "true"
       # Root admin initialization
       RootAdmin__InitialApiKey: ${RootAdmin__InitialApiKey}
       RootAdmin__EnableAutoCreate: "true"
