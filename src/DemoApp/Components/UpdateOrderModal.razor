@@ -1,0 +1,120 @@
+@inject ApiClient Api
+
+<div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Update Order</h5>
+                <button type="button" class="btn-close" @onclick="OnClose"></button>
+            </div>
+            <EditForm Model="@_model" OnValidSubmit="Submit">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Patient</label>
+                        <input type="text" class="form-control" value="@Order.PatientName" disabled />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Medication</label>
+                        <input type="text" class="form-control" value="@Order.MedicationName @Order.Dosage" disabled />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Status *</label>
+                        <InputSelect class="form-select" @bind-Value="_model.Status">
+                            <option value="Pending">Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Shipped">Shipped</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Shipping Address *</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="_model.ShippingAddress" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="_model.Notes" />
+                    </div>
+
+                    @if (_error != null)
+                    {
+                        <div class="alert alert-danger mb-0">@_error</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="OnClose">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@_isSubmitting">
+                        @if (_isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Update Order
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public OrderDto Order { get; set; } = null!;
+    [Parameter] public EventCallback OnUpdate { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private UpdateOrderModel _model = new();
+    private bool _isSubmitting;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        _model = new UpdateOrderModel
+        {
+            Status = Order.Status,
+            ShippingAddress = Order.ShippingAddress,
+            Notes = Order.Notes
+        };
+    }
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_model.ShippingAddress))
+        {
+            _error = "Please enter a shipping address";
+            return;
+        }
+
+        _isSubmitting = true;
+        _error = null;
+        StateHasChanged();
+
+        var request = new UpdateOrderRequest(
+            _model.Status,
+            _model.ShippingAddress,
+            _model.Notes
+        );
+
+        var result = await Api.UpdateOrderAsync(Order.Id, request);
+        if (result.IsSuccess)
+        {
+            await OnUpdate.InvokeAsync();
+        }
+        else
+        {
+            _error = result.ErrorMessage;
+        }
+
+        _isSubmitting = false;
+    }
+
+    private class UpdateOrderModel
+    {
+        public string Status { get; set; } = "Pending";
+        public string ShippingAddress { get; set; } = "";
+        public string? Notes { get; set; }
+    }
+}
+

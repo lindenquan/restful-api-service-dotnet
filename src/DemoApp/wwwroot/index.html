@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prescription API Demo</title>
+    <base href="/" />
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="DemoApp.styles.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div id="app">
+        <div class="loading-container">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Loading application...</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" class="alert alert-danger position-fixed bottom-0 start-50 translate-middle-x m-3" style="display: none;">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        An unhandled error has occurred.
+        <a href="." class="alert-link reload">Reload</a>
+        <button type="button" class="btn-close dismiss" aria-label="Close"></button>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

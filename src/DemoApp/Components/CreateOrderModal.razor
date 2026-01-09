@@ -1,0 +1,144 @@
+@inject ApiClient Api
+
+<div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-cart-plus me-2"></i>Create New Order</h5>
+                <button type="button" class="btn-close" @onclick="OnClose"></button>
+            </div>
+            <EditForm Model="@_model" OnValidSubmit="Submit">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Patient *</label>
+                        <InputSelect class="form-select" @bind-Value="_model.PatientId" @oninput="OnPatientChanged">
+                            <option value="">Select a patient...</option>
+                            @foreach (var patient in Patients)
+                            {
+                                <option value="@patient.Id">@patient.FullName</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Prescription *</label>
+                        <InputSelect class="form-select" @bind-Value="_model.PrescriptionId">
+                            <option value="">Select a prescription...</option>
+                            @foreach (var rx in _filteredPrescriptions)
+                            {
+                                <option value="@rx.Id">@rx.MedicationName - @rx.Dosage (@rx.RefillsRemaining refills left)</option>
+                            }
+                        </InputSelect>
+                        @if (!string.IsNullOrEmpty(_model.PatientId) && !_filteredPrescriptions.Any())
+                        {
+                            <small class="text-warning">No active prescriptions for this patient</small>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Shipping Address *</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="_model.ShippingAddress" 
+                                       placeholder="Enter delivery address" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="_model.Notes" 
+                                       placeholder="Optional notes for this order" />
+                    </div>
+
+                    @if (_error != null)
+                    {
+                        <div class="alert alert-danger mb-0">@_error</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="OnClose">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@_isSubmitting">
+                        @if (_isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Create Order
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<PatientDto> Patients { get; set; } = [];
+    [Parameter] public List<PrescriptionDto> Prescriptions { get; set; } = [];
+    [Parameter] public EventCallback OnCreate { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private OrderFormModel _model = new();
+    private List<PrescriptionDto> _filteredPrescriptions = [];
+    private bool _isSubmitting;
+    private string? _error;
+
+    private void OnPatientChanged(ChangeEventArgs e)
+    {
+        var patientId = e.Value?.ToString();
+        _model.PatientId = patientId ?? "";
+        _model.PrescriptionId = "";
+        
+        if (!string.IsNullOrEmpty(patientId) && Guid.TryParse(patientId, out var id))
+        {
+            _filteredPrescriptions = Prescriptions
+                .Where(p => p.PatientId == id && p.CanRefill && !p.IsExpired)
+                .ToList();
+        }
+        else
+        {
+            _filteredPrescriptions = [];
+        }
+    }
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrEmpty(_model.PatientId) || string.IsNullOrEmpty(_model.PrescriptionId))
+        {
+            _error = "Please select a patient and prescription";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.ShippingAddress))
+        {
+            _error = "Please enter a shipping address";
+            return;
+        }
+
+        _isSubmitting = true;
+        _error = null;
+        StateHasChanged();
+
+        var request = new CreateOrderRequest(
+            Guid.Parse(_model.PrescriptionId),
+            _model.ShippingAddress,
+            _model.Notes
+        );
+
+        var result = await Api.CreateOrderAsync(request);
+        if (result.IsSuccess)
+        {
+            await OnCreate.InvokeAsync();
+        }
+        else
+        {
+            _error = result.ErrorMessage;
+        }
+
+        _isSubmitting = false;
+    }
+
+    private class OrderFormModel
+    {
+        public string PatientId { get; set; } = "";
+        public string PrescriptionId { get; set; } = "";
+        public string ShippingAddress { get; set; } = "";
+        public string? Notes { get; set; }
+    }
+}
+

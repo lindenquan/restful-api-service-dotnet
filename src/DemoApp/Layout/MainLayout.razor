@@ -1,0 +1,74 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject DemoApp.Services.ApiSettingsService SettingsService
+
+<div class="d-flex">
+    <!-- Sidebar -->
+    <nav class="sidebar bg-dark text-white d-flex flex-column" style="width: var(--sidebar-width); min-height: 100vh; position: fixed;">
+        <!-- Brand -->
+        <div class="p-3 border-bottom border-secondary">
+            <h5 class="mb-0 d-flex align-items-center">
+                <i class="bi bi-capsule me-2"></i>
+                <span>Prescription API</span>
+            </h5>
+            <small class="text-muted">Demo Application</small>
+        </div>
+
+        <!-- Navigation -->
+        <NavMenu />
+
+        <!-- Footer -->
+        <div class="mt-auto p-3 border-top border-secondary">
+            <div class="d-flex align-items-center">
+                @if (SettingsService.IsConfigured)
+                {
+                    <span class="badge bg-success me-2"><i class="bi bi-check-circle"></i></span>
+                    <small class="text-muted">API Connected</small>
+                }
+                else
+                {
+                    <span class="badge bg-warning me-2"><i class="bi bi-exclamation-triangle"></i></span>
+                    <small class="text-muted">API Key Required</small>
+                }
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow-1" style="margin-left: var(--sidebar-width);">
+        <div class="p-4">
+            @if (_isReady)
+            {
+                @Body
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Loading...</p>
+                </div>
+            }
+        </div>
+    </main>
+</div>
+
+@code {
+    private bool _isReady;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await SettingsService.LoadSettingsAsync();
+        SettingsService.OnSettingsChanged += OnSettingsChanged;
+        _isReady = true;
+    }
+
+    private void OnSettingsChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        SettingsService.OnSettingsChanged -= OnSettingsChanged;
+    }
+}

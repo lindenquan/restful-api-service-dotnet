@@ -25,7 +25,7 @@
 param(
     [Parameter(Position = 0)]
     [ValidateSet(
-        'run', 'local', 'dev', 'stage',
+        'run', 'local', 'dev', 'stage', 'demo',
         'build', 'test', 'test-coverage', 'test-api-e2e', 'test-load',
         'format', 'clean', 'restore',
         'docker-up', 'docker-up-api', 'docker-down',
@@ -111,6 +111,34 @@ switch ($Command) {
         Invoke-BuildCommand -Name "Run API (stage)" -ScriptBlock {
             dotnet run --project src/Infrastructure --environment stage
         }
+    }
+    'demo' {
+        Write-Host "[>] Starting Demo App..." -ForegroundColor Cyan
+        Write-Host "    Building DemoApp..." -ForegroundColor Gray
+
+        # Build first to catch any errors
+        dotnet build src/DemoApp --verbosity quiet
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[FAIL] Build failed" -ForegroundColor Red
+            exit 1
+        }
+
+        $port = 5081
+        $url = "http://localhost:$port"
+
+        Write-Host "    Starting web server at $url" -ForegroundColor Gray
+        Write-Host "    Press Ctrl+C to stop" -ForegroundColor Gray
+        Write-Host ""
+
+        # Open browser after a short delay (in background)
+        Start-Job -ScriptBlock {
+            param($url)
+            Start-Sleep -Seconds 2
+            Start-Process $url
+        } -ArgumentList $url | Out-Null
+
+        # Run the app (this blocks until Ctrl+C)
+        dotnet run --project src/DemoApp --urls $url --no-build
     }
     'build' {
         Invoke-BuildCommand -Name "Build solution" -ScriptBlock {
@@ -289,6 +317,7 @@ API Commands:
   local               Run API in local mode (explicit override)
   dev                 Run API in dev mode (explicit override)
   stage               Run API in stage mode (explicit override)
+  demo                Run Demo App (Blazor WebAssembly UI) and open browser
   build               Build the solution
   test                Run unit tests
   test-coverage       Run tests with coverage
@@ -317,6 +346,7 @@ Complete Pipeline:
 
 Examples:
   ./build.ps1 run
+  ./build.ps1 demo
   ./build.ps1 test
   ./build.ps1 test-api-e2e -Env dev
   ./build.ps1 test-load

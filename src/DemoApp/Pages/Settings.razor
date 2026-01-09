@@ -1,0 +1,170 @@
+@page "/settings"
+@inject ApiSettingsService SettingsService
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>API Settings - Prescription API Demo</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <h1><i class="bi bi-gear me-2"></i>API Settings</h1>
+        <p>Configure your connection to the RESTful API service</p>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Connection Settings</h5>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@_model" OnValidSubmit="SaveSettings">
+                        <div class="mb-3">
+                            <label class="form-label">API Base URL</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-globe"></i></span>
+                                <InputText class="form-control" @bind-Value="_model.BaseUrl" placeholder="http://localhost:8080" />
+                            </div>
+                            <small class="text-muted">The base URL of your RESTful API service</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">API Key</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-key"></i></span>
+                                <InputText type="@(_showApiKey ? "text" : "password")"
+                                           class="form-control api-key-input"
+                                           @bind-Value="_model.ApiKey"
+                                           placeholder="Enter your API key" />
+                                <button type="button" class="btn btn-outline-secondary" @onclick="ToggleApiKeyVisibility">
+                                    <i class="bi @(_showApiKey ? "bi-eye-slash" : "bi-eye")"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Your X-API-Key for authentication</small>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">API Version</label>
+                            <InputSelect class="form-select" @bind-Value="_model.ApiVersion">
+                                <option value="1">V1 - Basic</option>
+                                <option value="2">V2 - Extended (Recommended)</option>
+                            </InputSelect>
+                            <small class="text-muted">V2 includes additional fields like age, audit timestamps</small>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" disabled="@_isSaving">
+                                @if (_isSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                <i class="bi bi-check-lg me-1"></i> Save Settings
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="TestConnection" disabled="@_isTesting">
+                                @if (_isTesting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                <i class="bi bi-broadcast me-1"></i> Test Connection
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" @onclick="ClearSettings">
+                                <i class="bi bi-trash me-1"></i> Clear
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    @if (_testResult != null)
+                    {
+                        <div class="alert @(_testResult.IsSuccess ? "alert-success" : "alert-danger") mt-3 mb-0">
+                            @if (_testResult.IsSuccess)
+                            {
+                                <i class="bi bi-check-circle me-2"></i>
+                                <strong>Connection successful!</strong> <span>API is @_testResult.Data!.Status</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-x-circle me-2"></i>
+                                <strong>Connection failed:</strong> @_testResult.ErrorMessage
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Help</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Getting Started</h6>
+                    <ol class="small text-muted">
+                        <li>Start the API service using Docker or locally</li>
+                        <li>Enter the API base URL (default: http://localhost:8080)</li>
+                        <li>Enter your API key (check RootAdmin__InitialApiKey in your .env file)</li>
+                        <li>Click Test Connection to verify</li>
+                        <li>Save and start using the demo!</li>
+                    </ol>
+
+                    <hr>
+
+                    <h6>API Key Authentication</h6>
+                    <p class="small text-muted mb-0">
+                        All API requests require an <code>X-API-Key</code> header for authentication.
+                        The root admin API key is configured via the <code>RootAdmin__InitialApiKey</code>
+                        environment variable when starting the API service.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApiSettings _model = new();
+    private bool _showApiKey;
+    private bool _isSaving;
+    private bool _isTesting;
+    private ApiResult<HealthCheckResponse>? _testResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await SettingsService.LoadSettingsAsync();
+        _model = new ApiSettings
+        {
+            BaseUrl = SettingsService.Settings.BaseUrl,
+            ApiKey = SettingsService.Settings.ApiKey,
+            ApiVersion = SettingsService.Settings.ApiVersion
+        };
+    }
+
+    private void ToggleApiKeyVisibility() => _showApiKey = !_showApiKey;
+
+    private async Task SaveSettings()
+    {
+        _isSaving = true;
+        await SettingsService.SaveSettingsAsync(_model);
+        _isSaving = false;
+        Navigation.NavigateTo("/");
+    }
+
+    private async Task TestConnection()
+    {
+        _isTesting = true;
+        _testResult = null;
+        StateHasChanged();
+
+        await SettingsService.SaveSettingsAsync(_model);
+        _testResult = await Api.GetHealthAsync();
+        _isTesting = false;
+    }
+
+    private async Task ClearSettings()
+    {
+        await SettingsService.ClearSettingsAsync();
+        _model = new ApiSettings();
+        _testResult = null;
+    }
+}
+

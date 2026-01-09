@@ -1,0 +1,62 @@
+﻿<div class="nav-menu py-3 flex-grow-1">
+    <ul class="nav flex-column">
+        <li class="nav-item">
+            <NavLink class="nav-link text-white px-3 py-2 d-flex align-items-center" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink class="nav-link text-white px-3 py-2 d-flex align-items-center" href="patients">
+                <i class="bi bi-people"></i>
+                <span>Patients</span>
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink class="nav-link text-white px-3 py-2 d-flex align-items-center" href="prescriptions">
+                <i class="bi bi-file-earmark-medical"></i>
+                <span>Prescriptions</span>
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink class="nav-link text-white px-3 py-2 d-flex align-items-center" href="orders">
+                <i class="bi bi-cart3"></i>
+                <span>Orders</span>
+            </NavLink>
+        </li>
+        <li class="nav-item mt-3 border-top border-secondary pt-3">
+            <NavLink class="nav-link text-white px-3 py-2 d-flex align-items-center" href="settings">
+                <i class="bi bi-gear"></i>
+                <span>API Settings</span>
+            </NavLink>
+        </li>
+    </ul>
+</div>
+
+<style>
+    .nav-menu .nav-link {
+        border-radius: 8px;
+        margin: 2px 8px;
+        transition: all 0.2s;
+        gap: 0.75rem;
+    }
+
+    .nav-menu .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-menu .nav-link.active {
+        background-color: var(--primary-color);
+        color: white !important;
+    }
+
+    .nav-menu .nav-link i.bi {
+        width: 20px;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+    }
+</style>

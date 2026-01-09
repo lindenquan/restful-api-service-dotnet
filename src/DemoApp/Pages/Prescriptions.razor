@@ -1,0 +1,290 @@
+@page "/prescriptions"
+@inject ApiClient Api
+@inject ApiSettingsService Settings
+
+<PageTitle>Prescriptions - Prescription API Demo</PageTitle>
+
+<div class="page-container">
+    <div class="page-header d-flex justify-content-between align-items-start">
+        <div>
+            <h1><i class="bi bi-file-earmark-medical me-2"></i>Prescriptions</h1>
+            <p>Manage medication prescriptions</p>
+        </div>
+        <button class="btn btn-primary" @onclick="ShowCreateModal">
+            <i class="bi bi-plus-lg me-1"></i> Create Prescription
+        </button>
+    </div>
+
+    @if (!Settings.IsConfigured)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Please configure your API key in <a href="settings">Settings</a> first.
+        </div>
+    }
+    else if (_isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Loading prescriptions...</p>
+        </div>
+    }
+    else if (_error != null)
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-x-circle me-2"></i>@_error
+            <button class="btn btn-sm btn-outline-danger ms-2" @onclick="LoadPrescriptions">Retry</button>
+        </div>
+    }
+    else if (_prescriptions.Count == 0)
+    {
+        <div class="card">
+            <div class="card-body empty-state">
+                <i class="bi bi-file-earmark-medical"></i>
+                <h5>No Prescriptions Found</h5>
+                <p>Create your first prescription for a patient.</p>
+                <button class="btn btn-primary" @onclick="ShowCreateModal">
+                    <i class="bi bi-plus-lg me-1"></i> Create Prescription
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Medication</th>
+                            <th>Dosage</th>
+                            <th>Refills</th>
+                            <th>Status</th>
+                            <th>Expires</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var rx in _prescriptions)
+                        {
+                            <tr>
+                                <td><strong>@rx.PatientName</strong></td>
+                                <td>@rx.MedicationName</td>
+                                <td>@rx.Dosage - @rx.Frequency</td>
+                                <td>@rx.RefillsRemaining remaining</td>
+                                <td>
+                                    @if (rx.IsExpired)
+                                    {
+                                        <span class="badge status-cancelled">Expired</span>
+                                    }
+                                    else if (rx.CanRefill)
+                                    {
+                                        <span class="badge status-delivered">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge status-pending">No Refills</span>
+                                    }
+                                </td>
+                                <td>
+                                    @rx.ExpiryDate.ToString("MMM d, yyyy")
+                                    @if (!rx.IsExpired && rx.DaysUntilExpiry <= 30)
+                                    {
+                                        <small class="text-warning">(@rx.DaysUntilExpiry days)</small>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Create Prescription Modal -->
+@if (_showCreateModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-plus me-2"></i>Create Prescription</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <EditForm Model="@_newPrescription" OnValidSubmit="CreatePrescription">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Patient *</label>
+                                <InputSelect class="form-select" @bind-Value="_newPrescription.PatientId">
+                                    <option value="">Select a patient...</option>
+                                    @foreach (var patient in _patients)
+                                    {
+                                        <option value="@patient.Id">@patient.FullName</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Prescriber Name *</label>
+                                <InputText class="form-control" @bind-Value="_newPrescription.PrescriberName" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Medication Name *</label>
+                                <InputText class="form-control" @bind-Value="_newPrescription.MedicationName" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Dosage *</label>
+                                <InputText class="form-control" @bind-Value="_newPrescription.Dosage" placeholder="e.g., 500mg" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Frequency *</label>
+                                <InputText class="form-control" @bind-Value="_newPrescription.Frequency" placeholder="e.g., Twice daily" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Quantity *</label>
+                                <InputNumber class="form-control" @bind-Value="_newPrescription.Quantity" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Refills Allowed *</label>
+                                <InputNumber class="form-control" @bind-Value="_newPrescription.RefillsAllowed" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Expiry Date *</label>
+                                <InputDate class="form-control" @bind-Value="_newPrescription.ExpiryDate" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Instructions</label>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="_newPrescription.Instructions" />
+                        </div>
+                        @if (_createError != null)
+                        {
+                            <div class="alert alert-danger mb-0">@_createError</div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@_isCreating">
+                            @if (_isCreating) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            Create
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<PrescriptionDto> _prescriptions = [];
+    private List<PatientDto> _patients = [];
+    private bool _isLoading;
+    private string? _error;
+    private bool _showCreateModal;
+    private bool _isCreating;
+    private string? _createError;
+    private PrescriptionFormModel _newPrescription = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Settings.LoadSettingsAsync();
+        if (Settings.IsConfigured)
+        {
+            await LoadPrescriptions();
+            await LoadPatients();
+        }
+    }
+
+    private async Task LoadPrescriptions()
+    {
+        _isLoading = true;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.GetPrescriptionsAsync();
+        if (result.IsSuccess)
+            _prescriptions = result.Data!;
+        else
+            _error = result.ErrorMessage;
+
+        _isLoading = false;
+    }
+
+    private async Task LoadPatients()
+    {
+        var result = await Api.GetPatientsAsync();
+        if (result.IsSuccess)
+            _patients = result.Data!;
+    }
+
+    private void ShowCreateModal()
+    {
+        _newPrescription = new PrescriptionFormModel
+        {
+            ExpiryDate = DateTime.Today.AddYears(1),
+            Quantity = 30,
+            RefillsAllowed = 3
+        };
+        _createError = null;
+        _showCreateModal = true;
+    }
+
+    private void CloseModal() { _showCreateModal = false; _createError = null; }
+
+    private async Task CreatePrescription()
+    {
+        if (string.IsNullOrEmpty(_newPrescription.PatientId))
+        {
+            _createError = "Please select a patient";
+            return;
+        }
+
+        _isCreating = true;
+        _createError = null;
+        StateHasChanged();
+
+        var request = new CreatePrescriptionRequest(
+            Guid.Parse(_newPrescription.PatientId),
+            _newPrescription.MedicationName,
+            _newPrescription.Dosage,
+            _newPrescription.Frequency,
+            _newPrescription.Quantity,
+            _newPrescription.RefillsAllowed,
+            _newPrescription.PrescriberName,
+            _newPrescription.ExpiryDate,
+            _newPrescription.Instructions
+        );
+
+        var result = await Api.CreatePrescriptionAsync(request);
+        if (result.IsSuccess)
+        {
+            CloseModal();
+            await LoadPrescriptions();
+        }
+        else
+        {
+            _createError = result.ErrorMessage;
+        }
+
+        _isCreating = false;
+    }
+
+    private class PrescriptionFormModel
+    {
+        public string PatientId { get; set; } = "";
+        public string MedicationName { get; set; } = "";
+        public string Dosage { get; set; } = "";
+        public string Frequency { get; set; } = "";
+        public int Quantity { get; set; } = 30;
+        public int RefillsAllowed { get; set; } = 3;
+        public string PrescriberName { get; set; } = "";
+        public DateTime ExpiryDate { get; set; } = DateTime.Today.AddYears(1);
+        public string? Instructions { get; set; }
+    }
+}
+

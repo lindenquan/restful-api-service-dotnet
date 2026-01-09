@@ -1,0 +1,182 @@
+﻿@page "/"
+@inject ApiClient Api
+@inject ApiSettingsService Settings
+@inject NavigationManager Navigation
+
+<PageTitle>Dashboard - Prescription API Demo</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <h1><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+        <p>Welcome to the Prescription Order API Demo Application</p>
+    </div>
+
+    @if (!Settings.IsConfigured)
+    {
+        <div class="alert alert-warning d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div>
+                <strong>API Key Required</strong> - Please configure your API key in
+                <a href="settings" class="alert-link">Settings</a> to start using the application.
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Health Status -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            @if (_isCheckingHealth)
+                            {
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Checking...</span>
+                                </div>
+                            }
+                            else if (_healthStatus == "Healthy")
+                            {
+                                <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+                            }
+                            else
+                            {
+                                <i class="bi bi-x-circle-fill text-danger" style="font-size: 2rem;"></i>
+                            }
+                        </div>
+                        <div>
+                            <h5 class="mb-0">API Status</h5>
+                            <small class="text-muted">@Settings.Settings.BaseUrl</small>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-primary" @onclick="CheckHealth" disabled="@_isCheckingHealth">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                    </button>
+                </div>
+                @if (!string.IsNullOrEmpty(_healthError))
+                {
+                    <div class="alert alert-danger mt-3 mb-0">@_healthError</div>
+                }
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-people text-primary" style="font-size: 2.5rem;"></i>
+                        <h2 class="mt-2 mb-0">@_patientCount</h2>
+                        <p class="text-muted mb-0">Patients</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-file-earmark-medical text-success" style="font-size: 2.5rem;"></i>
+                        <h2 class="mt-2 mb-0">@_prescriptionCount</h2>
+                        <p class="text-muted mb-0">Prescriptions</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-cart3 text-warning" style="font-size: 2.5rem;"></i>
+                        <h2 class="mt-2 mb-0">@_orderCount</h2>
+                        <p class="text-muted mb-0">Orders</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <button class="btn btn-primary w-100 py-3" @onclick="@(() => Navigation.NavigateTo("patients"))">
+                            <i class="bi bi-person-plus d-block mb-2" style="font-size: 1.5rem;"></i>
+                            Add New Patient
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-success w-100 py-3" @onclick="@(() => Navigation.NavigateTo("prescriptions"))">
+                            <i class="bi bi-file-earmark-plus d-block mb-2" style="font-size: 1.5rem;"></i>
+                            Create Prescription
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-warning w-100 py-3" @onclick="@(() => Navigation.NavigateTo("orders"))">
+                            <i class="bi bi-cart-plus d-block mb-2" style="font-size: 1.5rem;"></i>
+                            New Order
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isCheckingHealth;
+    private string _healthStatus = "";
+    private string? _healthError;
+    private int _patientCount;
+    private int _prescriptionCount;
+    private int _orderCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Settings.LoadSettingsAsync();
+        if (Settings.IsConfigured)
+        {
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        await CheckHealth();
+        await LoadCounts();
+    }
+
+    private async Task CheckHealth()
+    {
+        _isCheckingHealth = true;
+        _healthError = null;
+        StateHasChanged();
+
+        var result = await Api.GetHealthAsync();
+        if (result.IsSuccess)
+        {
+            _healthStatus = result.Data!.Status;
+        }
+        else
+        {
+            _healthStatus = "Error";
+            _healthError = result.ErrorMessage;
+        }
+
+        _isCheckingHealth = false;
+    }
+
+    private async Task LoadCounts()
+    {
+        var patientsResult = await Api.GetPatientsAsync();
+        if (patientsResult.IsSuccess)
+            _patientCount = patientsResult.Data!.Count;
+
+        var prescriptionsResult = await Api.GetPrescriptionsAsync();
+        if (prescriptionsResult.IsSuccess)
+            _prescriptionCount = prescriptionsResult.Data!.Count;
+
+        var ordersResult = await Api.GetOrdersAsync();
+        if (ordersResult.IsSuccess)
+            _orderCount = ordersResult.Data!.ODataCount ?? ordersResult.Data.Value.Count;
+    }
+}

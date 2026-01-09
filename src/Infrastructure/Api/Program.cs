@@ -256,9 +256,27 @@ builder.Services.AddCors(options =>
             }
         }
 
-        policy.WithMethods(corsSettings.AllowedMethods)
-              .WithHeaders(corsSettings.AllowedHeaders)
-              .WithExposedHeaders(corsSettings.ExposedHeaders)
+        // Handle wildcard for methods
+        if (corsSettings.AllowedMethods.Contains("*"))
+        {
+            policy.AllowAnyMethod();
+        }
+        else
+        {
+            policy.WithMethods(corsSettings.AllowedMethods);
+        }
+
+        // Handle wildcard for headers
+        if (corsSettings.AllowedHeaders.Contains("*"))
+        {
+            policy.AllowAnyHeader();
+        }
+        else
+        {
+            policy.WithHeaders(corsSettings.AllowedHeaders);
+        }
+
+        policy.WithExposedHeaders(corsSettings.ExposedHeaders)
               .SetPreflightMaxAge(TimeSpan.FromSeconds(corsSettings.PreflightMaxAgeSeconds));
     });
 });

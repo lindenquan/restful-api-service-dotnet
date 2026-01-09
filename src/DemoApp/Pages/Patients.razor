@@ -1,0 +1,225 @@
+@page "/patients"
+@inject ApiClient Api
+@inject ApiSettingsService Settings
+
+<PageTitle>Patients - Prescription API Demo</PageTitle>
+
+<div class="page-container">
+    <div class="page-header d-flex justify-content-between align-items-start">
+        <div>
+            <h1><i class="bi bi-people me-2"></i>Patients</h1>
+            <p>Manage patient records in the system</p>
+        </div>
+        <button class="btn btn-primary" @onclick="ShowCreateModal">
+            <i class="bi bi-plus-lg me-1"></i> Add Patient
+        </button>
+    </div>
+
+    @if (!Settings.IsConfigured)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Please configure your API key in <a href="settings">Settings</a> first.
+        </div>
+    }
+    else if (_isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Loading patients...</p>
+        </div>
+    }
+    else if (_error != null)
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-x-circle me-2"></i>@_error
+            <button class="btn btn-sm btn-outline-danger ms-2" @onclick="LoadPatients">Retry</button>
+        </div>
+    }
+    else if (_patients.Count == 0)
+    {
+        <div class="card">
+            <div class="card-body empty-state">
+                <i class="bi bi-people"></i>
+                <h5>No Patients Found</h5>
+                <p>Get started by adding your first patient.</p>
+                <button class="btn btn-primary" @onclick="ShowCreateModal">
+                    <i class="bi bi-plus-lg me-1"></i> Add Patient
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Date of Birth</th>
+                            <th>Age</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var patient in _patients)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@patient.FullName</strong>
+                                </td>
+                                <td>@patient.Email</td>
+                                <td>@(patient.Phone ?? "-")</td>
+                                <td>@patient.DateOfBirth.ToString("MMM d, yyyy")</td>
+                                <td>@patient.Age years</td>
+                                <td>@patient.CreatedAt.ToString("MMM d, yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Create Patient Modal -->
+@if (_showCreateModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Add New Patient</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <EditForm Model="@_newPatient" OnValidSubmit="CreatePatient">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">First Name *</label>
+                                <InputText class="form-control" @bind-Value="_newPatient.FirstName" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Last Name *</label>
+                                <InputText class="form-control" @bind-Value="_newPatient.LastName" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email *</label>
+                            <InputText class="form-control" type="email" @bind-Value="_newPatient.Email" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phone</label>
+                            <InputText class="form-control" @bind-Value="_newPatient.Phone" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Date of Birth *</label>
+                            <InputDate class="form-control" @bind-Value="_newPatient.DateOfBirth" />
+                        </div>
+                        @if (_createError != null)
+                        {
+                            <div class="alert alert-danger mb-0">@_createError</div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" disabled="@_isCreating">
+                            @if (_isCreating)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Create Patient
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<PatientDto> _patients = [];
+    private bool _isLoading;
+    private string? _error;
+    private bool _showCreateModal;
+    private bool _isCreating;
+    private string? _createError;
+    private PatientFormModel _newPatient = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Settings.LoadSettingsAsync();
+        if (Settings.IsConfigured)
+            await LoadPatients();
+    }
+
+    private async Task LoadPatients()
+    {
+        _isLoading = true;
+        _error = null;
+        StateHasChanged();
+
+        var result = await Api.GetPatientsAsync();
+        if (result.IsSuccess)
+            _patients = result.Data!;
+        else
+            _error = result.ErrorMessage;
+
+        _isLoading = false;
+    }
+
+    private void ShowCreateModal()
+    {
+        _newPatient = new PatientFormModel { DateOfBirth = DateTime.Today.AddYears(-30) };
+        _createError = null;
+        _showCreateModal = true;
+    }
+
+    private void CloseModal()
+    {
+        _showCreateModal = false;
+        _createError = null;
+    }
+
+    private async Task CreatePatient()
+    {
+        _isCreating = true;
+        _createError = null;
+        StateHasChanged();
+
+        var request = new CreatePatientRequest(
+            _newPatient.FirstName,
+            _newPatient.LastName,
+            _newPatient.Email,
+            _newPatient.Phone,
+            _newPatient.DateOfBirth
+        );
+
+        var result = await Api.CreatePatientAsync(request);
+        if (result.IsSuccess)
+        {
+            CloseModal();
+            await LoadPatients();
+        }
+        else
+        {
+            _createError = result.ErrorMessage;
+        }
+
+        _isCreating = false;
+    }
+
+    private class PatientFormModel
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string? Phone { get; set; }
+        public DateTime DateOfBirth { get; set; } = DateTime.Today.AddYears(-30);
+    }
+}
+
