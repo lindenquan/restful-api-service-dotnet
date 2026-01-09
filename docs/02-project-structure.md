@@ -15,11 +15,11 @@ src/
 ├── Application/         # Application Business Rules (feature-based)
 └── Infrastructure/      # Interface Adapters
     ├── Api/             # HTTP layer, controllers, middleware
-    ├── Cache/           # L1/L2 cache implementations
+    ├── Cache/           # Local/Remote cache implementations
     └── Persistence/     # Database, external services
 
 tests/
-├── Tests/          # Unit tests (business logic + L1 cache)
+├── Tests/          # Unit tests (business logic + Local cache)
 └── Tests.Api.E2E/  # API E2E tests (MongoDB + Redis integration)
 
 tools/
@@ -249,10 +249,10 @@ Infrastructure/
 │
 ├── Cache/                      # Caching adapters
 │   ├── CacheSettings.cs
-│   ├── MemoryCacheService.cs   # L1 in-memory cache
-│   ├── RedisCacheService.cs    # L2 Redis cache
-│   ├── HybridCacheService.cs   # L1/L2 hybrid cache
+│   ├── LocalCacheService.cs    # Local in-memory cache
+│   ├── RemoteCacheService.cs   # Remote Redis cache
 │   ├── NullCacheService.cs     # No-op cache for testing
+│   ├── CacheActionFilter.cs    # HTTP attribute-based caching
 │   └── DependencyInjection.cs
 │
 └── Persistence/                # Data/External adapters (driven)

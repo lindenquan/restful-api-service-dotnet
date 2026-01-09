@@ -5,6 +5,7 @@ using DTOs.V2;
 using Infrastructure.Api.Authorization;
 using Infrastructure.Api.Controllers.V2.Mappers;
 using Infrastructure.Api.Helpers;
+using Infrastructure.Cache;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -64,9 +65,11 @@ public class PatientsController : ControllerBase
     /// <summary>
     /// Get a patient by ID.
     /// V2 includes age calculation and audit fields.
+    /// DEMO: Uses RemoteCache with Eventual consistency (default) - good for frequently accessed data.
     /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize(Policy = PolicyNames.CanRead)]
+    [RemoteCache(TtlSeconds = 300, KeyPrefix = "patient")] // 5-minute TTL, Eventual consistency
     public async Task<ActionResult<PatientDto>> GetById(Guid id, CancellationToken ct)
     {
         var patient = await _mediator.Send(new GetPatientByIdQuery(id), ct);

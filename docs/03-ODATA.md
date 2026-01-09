@@ -455,30 +455,34 @@ await collection.Indexes.CreateOneAsync(
 
 ### 3. Caching in MediatR
 
+Caching is transparent via the `ICacheableQuery` interface and `CachingBehavior` pipeline:
+
 ```csharp
+// Query implements ICacheableQuery - caching is automatic
+public sealed record GetOrdersPagedQuery(
+    int Skip,
+    int Top,
+    bool IncludeCount = false,
+    string? OrderBy = null,
+    bool Descending = false) : IRequest<PagedData<PrescriptionOrder>>, ICacheableQuery
+{
+    // Cache key includes all parameters that affect the result
+    public string CacheKey => $"orders:paged:{Skip}:{Top}:{OrderBy}:{Descending}";
+}
+
+// Handler has NO caching logic - CachingBehavior handles it
 public class GetOrdersPagedHandler : IRequestHandler<GetOrdersPagedQuery, PagedData<PrescriptionOrder>>
 {
-    private readonly IDistributedCache _cache;
-
     public async Task<PagedData<PrescriptionOrder>> Handle(
         GetOrdersPagedQuery request, CancellationToken ct)
     {
-        var cacheKey = $"orders:paged:{request.Skip}:{request.Top}:{request.OrderBy}";
-
-        // Try cache first
-        var cached = await _cache.GetAsync<PagedData<PrescriptionOrder>>(cacheKey, ct);
-        if (cached != null) return cached;
-
-        // Query database
-        var result = await _unitOfWork.PrescriptionOrders.GetPagedWithDetailsAsync(...);
-
-        // Cache result
-        await _cache.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5), ct);
-
-        return result;
+        // Just query database - caching is handled by CachingBehavior
+        return await _unitOfWork.PrescriptionOrders.GetPagedWithDetailsAsync(...);
     }
 }
 ```
+
+See [Caching Strategy](./09-caching-strategy.md) for details on `ICacheableQuery` and cache invalidation.
 
 ---
 

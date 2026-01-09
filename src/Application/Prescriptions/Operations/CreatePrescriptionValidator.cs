@@ -1,18 +1,26 @@
+using Application.Interfaces.Repositories;
 using FluentValidation;
 
 namespace Application.Prescriptions.Operations;
 
 /// <summary>
 /// Validator for CreatePrescriptionCommand.
+/// Includes async database validation for entity existence.
 /// Sealed for performance optimization and design intent.
 /// </summary>
 public sealed class CreatePrescriptionValidator : AbstractValidator<CreatePrescriptionCommand>
 {
-    public CreatePrescriptionValidator()
+    private readonly IUnitOfWork _unitOfWork;
+
+    public CreatePrescriptionValidator(IUnitOfWork unitOfWork)
     {
+        _unitOfWork = unitOfWork;
+
         RuleFor(x => x.PatientId)
             .NotEmpty()
-            .WithMessage("PatientId is required");
+            .WithMessage("PatientId is required")
+            .MustAsync(PatientExistsAsync)
+            .WithMessage("Patient does not exist");
 
         RuleFor(x => x.MedicationName)
             .NotEmpty()
@@ -60,6 +68,18 @@ public sealed class CreatePrescriptionValidator : AbstractValidator<CreatePrescr
             .MaximumLength(1000)
             .WithMessage("Instructions cannot exceed 1000 characters")
             .When(x => x.Instructions != null);
+    }
+
+    private async Task<bool> PatientExistsAsync(Guid patientId, CancellationToken ct)
+    {
+        // Let NotEmpty handle empty GUIDs
+        if (patientId == Guid.Empty)
+        {
+            return true;
+        }
+
+        var patient = await _unitOfWork.Patients.GetByIdAsync(patientId, ct);
+        return patient != null;
     }
 }
 

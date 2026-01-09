@@ -60,7 +60,8 @@ dotnet run --project tests/Tests.LoadTests
 
 | Component | What's Tested |
 |-----------|---------------|
-| **MemoryCacheService** | L1 in-memory cache behavior (Set, Get, Remove, Exists, GetOrAdd) |
+| **LocalCacheService** | Local in-memory cache behavior (Set, Get, Remove, Exists, GetOrAdd) |
+| **RemoteCacheService** | Lock-based consistency, TTL, Redis operations (mocked) |
 | **NullCacheService** | No-op cache behavior |
 
 ### What We DON'T Unit Test
@@ -68,8 +69,7 @@ dotnet run --project tests/Tests.LoadTests
 | Component | Reason |
 |-----------|--------|
 | MongoDB repositories | No value testing MongoDB driver calls |
-| **RedisCacheService** | **Tested in API E2E tests against real Redis** |
-| **HybridCacheService** | **Tested in API E2E tests with real L1+L2** |
+| **RemoteCacheService (real Redis)** | **Tested in API E2E tests against real Redis** |
 | EF Core DbContext | No value testing EF Core |
 | HTTP client calls | No value testing HttpClient |
 
@@ -106,7 +106,9 @@ tests/Tests/
 │   ├── Security/
 │   │   └── ApiKeyHasherTests.cs
 │   ├── Cache/
-│   │   └── MemoryCacheServiceTests.cs
+│   │   ├── LocalCacheServiceTests.cs
+│   │   ├── RemoteCacheServiceTests.cs
+│   │   └── CacheActionFilterTests.cs
 │   ├── Persistence/
 │   │   ├── PatientPersistenceMapperTests.cs
 │   │   ├── PrescriptionPersistenceMapperTests.cs
@@ -147,8 +149,8 @@ API E2E tests verify the **API service** against **real infrastructure** (no web
 
 - ✅ HTTP → API → MongoDB flow
 - ✅ Real MongoDB database
-- ✅ Real Redis cache (L2)
-- ✅ Hybrid cache (L1 + L2) behavior
+- ✅ Real Redis cache (Remote)
+- ✅ Hybrid cache (Local + Remote) behavior
 - ✅ JSON serialization/deserialization
 - ✅ Authentication flow
 - ✅ Cache invalidation (Redis pub/sub)
@@ -299,8 +301,8 @@ public async Task UpdateOrder_ShouldInvalidateCache()
 | Domain | 100% | Pure business logic |
 | Application Handlers | 90%+ | Core use cases |
 | Application Validators | 100% | All validation rules |
-| Infrastructure (Cache - L1) | 90%+ | MemoryCacheService unit tests |
-| Infrastructure (Cache - L2) | 0% | RedisCacheService covered by API E2E |
+| Infrastructure (Cache - Local) | 90%+ | LocalCacheService unit tests |
+| Infrastructure (Cache - Remote) | 90%+ | RemoteCacheService unit tests (mocked Redis) |
 | Infrastructure (DB) | 0% | MongoDB covered by API E2E |
 | API Controllers | 70%+ | Request/response mapping |
 

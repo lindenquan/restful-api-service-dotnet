@@ -5,6 +5,7 @@ using DTOs.V2;
 using Infrastructure.Api.Authorization;
 using Infrastructure.Api.Controllers.V2.Mappers;
 using Infrastructure.Api.Helpers;
+using Infrastructure.Cache;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -64,9 +65,11 @@ public class PrescriptionsController : ControllerBase
     /// <summary>
     /// Get a prescription by ID.
     /// V2 includes status indicators and days until expiry.
+    /// DEMO: Uses RemoteCache with Strong consistency - readers bypass cache during writes.
     /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize(Policy = PolicyNames.CanRead)]
+    [RemoteCache(CacheConsistency.Strong, TtlSeconds = 120, KeyPrefix = "rx")] // Strong consistency, 2-min TTL
     public async Task<ActionResult<PrescriptionDto>> GetById(Guid id, CancellationToken ct)
     {
         var prescription = await _mediator.Send(new GetPrescriptionByIdQuery(id), ct);
@@ -91,9 +94,12 @@ public class PrescriptionsController : ControllerBase
     /// <summary>
     /// Get active (non-expired, refillable) prescriptions.
     /// V2 supports filtering by status (V1 doesn't have this endpoint).
+    /// DEMO: Uses LocalCache - in-memory cache for frequently accessed list.
+    /// Note: Use only if data changes infrequently, as LocalCache has no TTL.
     /// </summary>
     [HttpGet("active")]
     [Authorize(Policy = PolicyNames.CanRead)]
+    [LocalCache(KeyPrefix = "rx-active")] // Local in-memory cache
     public async Task<ActionResult<IEnumerable<PrescriptionDto>>> GetActive(CancellationToken ct)
     {
         var prescriptions = await _mediator.Send(new GetAllPrescriptionsQuery(), ct);

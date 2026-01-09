@@ -5,42 +5,45 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Infrastructure.Cache;
 
 /// <summary>
-/// L1 in-memory cache service implementation using IMemoryCache.
-/// Provides thread-safe caching with automatic eviction and size limits.
+/// Local in-memory cache service implementation using IMemoryCache.
+/// <para>
+/// This is a simple static data cache with infinite TTL. Cache entries are never
+/// automatically invalidated or expired. They are only evicted when MaxItems limit
+/// is reached (LRU eviction) or when the application restarts.
+/// </para>
+/// <para>
+/// Use only for static reference data that never changes (e.g., drug lists, ICD codes).
+/// </para>
 /// Sealed for performance optimization and design intent.
 /// </summary>
-public sealed class MemoryCacheService : ICacheService
+public sealed class LocalCacheService : ICacheService
 {
     private readonly IMemoryCache _cache;
-    private readonly CacheSettings _settings;
-    private readonly ILogger<MemoryCacheService> _logger;
+    private readonly ILogger<LocalCacheService> _logger;
     private readonly ConcurrentDictionary<string, byte> _keys = new();
 
-    public MemoryCacheService(
+    public LocalCacheService(
         IMemoryCache cache,
         CacheSettings settings,
-        ILogger<MemoryCacheService> logger)
+        ILogger<LocalCacheService> logger)
     {
         _cache = cache;
-        _settings = settings;
         _logger = logger;
+
+        _logger.LogInformation(
+            "Local cache initialized as static data cache (infinite TTL, MaxItems: {MaxItems}). " +
+            "Use only for static reference data that never changes.",
+            settings.Local.MaxItems);
     }
 
     public void Set<T>(string key, T value, TimeSpan? expiry = null)
     {
-        // Use provided expiry, or get from settings (null means infinite TTL)
-        var actualExpiry = expiry ?? _settings.L1.GetTtl();
-
+        // Local cache always uses infinite TTL - expiry parameter is ignored
         var options = new MemoryCacheEntryOptions
         {
             Size = 1 // Each entry counts as 1 item for size limiting
+            // No AbsoluteExpiration or SlidingExpiration - infinite TTL
         };
-
-        // Only set expiration if TTL is not infinite
-        if (actualExpiry.HasValue)
-        {
-            options.AbsoluteExpirationRelativeToNow = actualExpiry.Value;
-        }
 
         // Track the key and register callback to remove it when evicted
         options.RegisterPostEvictionCallback((evictedKey, _, _, _) =>

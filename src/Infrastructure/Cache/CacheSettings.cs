@@ -1,80 +1,82 @@
 namespace Infrastructure.Cache;
 
 /// <summary>
-/// Cache configuration settings supporting L1 (memory) and L2 (Redis) caching.
+/// Cache configuration settings supporting Local (memory) and Remote (Redis) caching.
+/// These are separate caches, not layered. Each endpoint chooses which cache to use via attributes.
 /// </summary>
 public class CacheSettings
 {
     public const string SectionName = "Cache";
 
     /// <summary>
-    /// L1 in-memory cache settings.
+    /// Local in-memory cache settings (for static reference data).
     /// </summary>
-    public L1CacheSettings L1 { get; set; } = new();
+    public LocalCacheSettings Local { get; set; } = new();
 
     /// <summary>
-    /// L2 Redis distributed cache settings.
+    /// Remote Redis cache settings (for dynamic data with consistency options).
     /// </summary>
-    public L2CacheSettings L2 { get; set; } = new();
+    public RemoteCacheSettings Remote { get; set; } = new();
 }
 
 /// <summary>
-/// L1 in-memory cache settings.
+/// Local in-memory cache settings.
+/// <para>
+/// <strong>Important:</strong> Local cache is for static reference data only with infinite TTL.
+/// Cache entries are never automatically invalidated or expired. They are only evicted when:
+/// <list type="bullet">
+/// <item><description>The <see cref="MaxItems"/> limit is reached (LRU eviction)</description></item>
+/// <item><description>The application restarts</description></item>
+/// </list>
+/// </para>
+/// <para>
+/// <strong>Use Local cache only for:</strong> Static reference data that never changes
+/// (e.g., drug lists, ICD codes, configuration). Do NOT use for user data or transactional data.
+/// </para>
 /// </summary>
-public class L1CacheSettings
+public class LocalCacheSettings
 {
     /// <summary>
-    /// Whether L1 cache is enabled.
+    /// Whether Local cache is enabled.
     /// </summary>
     public bool Enabled { get; set; } = false;
 
     /// <summary>
-    /// Consistency mode: Strong (invalidation via pub/sub) or Eventual (short TTL).
-    /// Default is Strong for healthcare data integrity.
-    /// </summary>
-    public CacheConsistency Consistency { get; set; } = CacheConsistency.Strong;
-
-    /// <summary>
-    /// TTL for L1 cache entries in seconds.
-    /// For Eventual consistency, keep this short (5-30 seconds).
-    /// Set to 0 or negative for infinite TTL (no expiration).
-    /// </summary>
-    public int TtlSeconds { get; set; } = 30;
-
-    /// <summary>
-    /// Gets the TTL as a TimeSpan, or null if TTL is infinite (TtlSeconds &lt;= 0).
-    /// </summary>
-    public TimeSpan? GetTtl() => TtlSeconds <= 0 ? null : TimeSpan.FromSeconds(TtlSeconds);
-
-    /// <summary>
-    /// Maximum number of items in L1 cache.
+    /// Maximum number of items in Local cache.
+    /// When this limit is reached, least recently used items are evicted.
     /// </summary>
     public int MaxItems { get; set; } = 10000;
 }
 
 /// <summary>
-/// L2 Redis distributed cache settings.
+/// Remote Redis cache settings.
 /// <para>
-/// <strong>Startup behavior:</strong> When L2 cache is enabled, Redis must be healthy at startup.
+/// <strong>Startup behavior:</strong> When Remote cache is enabled, Redis must be healthy at startup.
 /// The application will fail to start if Redis is unavailable.
 /// </para>
 /// <para>
 /// <strong>Runtime behavior:</strong> If Redis becomes unavailable after startup, the application
-/// continues to work without L2 cache. Errors are logged but requests are not blocked.
+/// continues to work without Remote cache. Errors are logged but requests are not blocked.
 /// The health check will report "Degraded" status when Redis is down.
 /// </para>
 /// </summary>
-public class L2CacheSettings
+public class RemoteCacheSettings
 {
     /// <summary>
-    /// Whether L2 cache is enabled.
+    /// Whether Remote cache is enabled.
     /// When enabled, Redis must be available at startup (required).
     /// After startup, Redis failures are gracefully handled (degraded mode).
     /// </summary>
     public bool Enabled { get; set; } = false;
 
     /// <summary>
-    /// Consistency mode: Strong (write-through) or Eventual (write-behind).
+    /// Default consistency level for remote cache operations.
+    /// Can be overridden per-endpoint using [RemoteCache(CacheConsistency.X)] attribute.
+    /// <list type="bullet">
+    /// <item><term>Eventual</term><description>TTL-based, stale OK for duration of TTL</description></item>
+    /// <item><term>Strong</term><description>Lock-based, readers bypass to DB when locked (recommended)</description></item>
+    /// <item><term>Serializable</term><description>Lock-based, readers wait for lock release</description></item>
+    /// </list>
     /// </summary>
     public CacheConsistency Consistency { get; set; } = CacheConsistency.Strong;
 
@@ -89,7 +91,7 @@ public class L2CacheSettings
     public string InstanceName { get; set; } = "PrescriptionApi:";
 
     /// <summary>
-    /// TTL for L2 cache entries in seconds.
+    /// TTL for cache entries in seconds.
     /// Set to 0 or negative for infinite TTL (no expiration).
     /// </summary>
     public int TtlSeconds { get; set; } = 300;
@@ -110,46 +112,51 @@ public class L2CacheSettings
     public int SyncTimeout { get; set; } = 1000;
 
     /// <summary>
-    /// Channel name for cache invalidation pub/sub.
+    /// Lock timeout in seconds. If a lock holder dies, the lock auto-expires after this duration.
+    /// This is a safety net to prevent deadlocks. Used for Strong and Serializable consistency.
     /// </summary>
-    public string InvalidationChannel { get; set; } = "cache:invalidate";
+    public int LockTimeoutSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// Delay in milliseconds between lock retry attempts (for Serializable consistency).
+    /// </summary>
+    public int LockRetryDelayMs { get; set; } = 50;
+
+    /// <summary>
+    /// Maximum time in milliseconds to wait for a lock (for Serializable consistency).
+    /// After this, the read will bypass the cache and go directly to DB.
+    /// </summary>
+    public int LockWaitTimeoutMs { get; set; } = 1000;
+
+    /// <summary>Returns lock timeout as TimeSpan.</summary>
+    public TimeSpan GetLockTimeout() => TimeSpan.FromSeconds(LockTimeoutSeconds);
 }
 
 /// <summary>
-/// Cache consistency modes.
-/// <para>
-/// <strong>Important:</strong> Neither mode provides perfect consistency.
-/// For zero tolerance of stale data, disable caching entirely.
-/// </para>
+/// Cache consistency modes for Remote (Redis) cache.
+/// Determines how cache reads behave when a write is in progress.
 /// </summary>
 public enum CacheConsistency
 {
     /// <summary>
-    /// Strong consistency: Near real-time invalidation via Redis pub/sub.
-    /// <para>
-    /// <strong>Mechanism:</strong> Pub/sub invalidation messages across instances.
-    /// </para>
-    /// <para>
-    /// <strong>Stale window:</strong> Milliseconds to seconds (network latency dependent).
-    /// </para>
-    /// <para>
-    /// <strong>Requires:</strong> L2 (Redis) must be enabled for cross-instance invalidation.
-    /// </para>
+    /// TTL-based expiration only. No locking.
+    /// <para><strong>Stale window:</strong> Up to configured TtlSeconds.</para>
+    /// <para><strong>Best for:</strong> High-read, low-write data where brief staleness is acceptable.</para>
+    /// </summary>
+    Eventual,
+
+    /// <summary>
+    /// Lock-based consistency. Readers bypass cache and read from DB when locked.
+    /// <para><strong>Stale window:</strong> 0 (no stale reads during writes).</para>
+    /// <para><strong>Best for:</strong> Most write operations where consistency matters.</para>
     /// </summary>
     Strong,
 
     /// <summary>
-    /// Eventual consistency: TTL-based cache expiration.
-    /// <para>
-    /// <strong>Mechanism:</strong> Cache entries expire after configured TTL.
-    /// </para>
-    /// <para>
-    /// <strong>Stale window:</strong> Up to configured TtlSeconds (e.g., 10s, 30s).
-    /// </para>
-    /// <para>
-    /// <strong>Best for:</strong> Development, single-instance, or stale-tolerant data.
-    /// </para>
+    /// Lock-based consistency. Readers wait for lock release before reading.
+    /// <para><strong>Stale window:</strong> 0 (strict ordering, no stale reads).</para>
+    /// <para><strong>Best for:</strong> Critical operations requiring strict read/write ordering.</para>
     /// </summary>
-    Eventual
+    Serializable
 }
 

@@ -121,19 +121,18 @@ public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<
 - `src/Application/Behaviors/LoggingBehavior.cs`
 - `src/Application/Behaviors/CachingBehavior.cs`
 
-### **Service Implementations** (5 classes)
+### **Service Implementations** (4 classes)
 
 ```csharp
-public sealed class MemoryCacheService : ICacheService
+public sealed class LocalCacheService : ICacheService
 {
     // ...
 }
 ```
 
 **Files:**
-- `src/Infrastructure/Cache/MemoryCacheService.cs`
-- `src/Infrastructure/Cache/RedisCacheService.cs`
-- `src/Infrastructure/Cache/HybridCacheService.cs`
+- `src/Infrastructure/Cache/LocalCacheService.cs`
+- `src/Infrastructure/Cache/RemoteCacheService.cs`
 - `src/Infrastructure/Cache/NullCacheService.cs`
 - `src/Infrastructure/Api/Services/CurrentUserService.cs`
 

@@ -194,7 +194,7 @@ var swaggerEnabled = builder.Configuration.GetValue<bool?>("Swagger:Enabled") ??
 // Register Persistence layer services (MongoDB)
 builder.Services.AddPersistence(mongoDbSettings);
 
-// Register Cache layer services (L1 memory / L2 Redis)
+// Register Cache layer services (Local memory / Remote Redis)
 builder.Services.AddCache(cacheSettings);
 
 // Register Resilience pipelines (retry, circuit breaker, timeout)
@@ -279,14 +279,14 @@ if (!string.IsNullOrEmpty(mongoDbSettings?.ConnectionString))
         tags: ["db", "mongodb", "required"]);
 }
 
-// Add Redis health check if L2 cache is enabled
+// Add Redis health check if Remote cache is enabled
 // - Startup: Redis must be healthy (app fails to start if unavailable)
 // - Runtime: Reports Degraded (not Unhealthy) when Redis is down
-// - App continues to work without L2 cache after startup, logging errors
-if (cacheSettings.L2.Enabled)
+// - App continues to work without Remote cache after startup, logging errors
+if (cacheSettings.Remote.Enabled)
 {
     healthChecksBuilder.AddRedis(
-        cacheSettings.L2.ConnectionString,
+        cacheSettings.Remote.ConnectionString,
         name: "redis",
         failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded,
         tags: ["cache", "redis"]);
@@ -344,7 +344,7 @@ app.UseValidationExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 9. Health check endpoint - returns Unhealthy if MongoDB or Redis (when L2 enabled) are down
+// 9. Health check endpoint - returns Unhealthy if MongoDB or Redis (when Remote cache enabled) are down
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>

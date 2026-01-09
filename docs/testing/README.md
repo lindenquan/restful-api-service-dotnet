@@ -52,7 +52,7 @@ dotnet test tests/Tests.Api.E2E
 | Document | Description |
 |----------|-------------|
 | [01-testing-strategy.md](./01-testing-strategy.md) | Overall testing strategy and philosophy |
-| [02-e2e-testing.md](./02-e2e-testing.md) | E2E testing guide (API and Web) |
+| [02-e2e-testing.md](./02-e2e-testing.md) | API E2E testing guide |
 | [03-load-concurrency-tests.md](./03-load-concurrency-tests.md) | Load and concurrency testing (NBomber) |
 | [Azure Load Testing](../../tests/Tests.LoadTests.Azure/README.md) | Cloud-based load testing (1M+ users) |
 

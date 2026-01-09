@@ -96,6 +96,21 @@ public class MongoDbSettings
     /// </summary>
     public int SocketTimeoutSeconds { get; set; } = 0;
 
+    // =============================================================================
+    // Transaction Settings
+    // =============================================================================
+    // MongoDB supports different isolation levels through ReadConcern/WriteConcern:
+    // - Snapshot: Default, consistent view at transaction start
+    // - Serializable: Full ACID with linearizable reads (banking/financial)
+    // - Majority: Balance of consistency and performance
+    // - Local: Highest performance, lowest consistency
+    // =============================================================================
+
+    /// <summary>
+    /// Transaction configuration settings.
+    /// </summary>
+    public TransactionSettings Transaction { get; set; } = new();
+
     /// <summary>
     /// Gets the final connection string with username/password and pool settings injected.
     /// </summary>

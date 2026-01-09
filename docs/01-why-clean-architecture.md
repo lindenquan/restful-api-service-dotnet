@@ -1,4 +1,4 @@
-# Why Clean Architecture?
+# Why Clean Architecture?　
 
 ## Traditional N-Layer Architecture
 

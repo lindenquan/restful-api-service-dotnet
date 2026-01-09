@@ -1,6 +1,16 @@
 # Prescription Order API
 
-A production-ready REST API built with **.NET 10** and **Clean Architecture**.
+A **semi-distributed**, "production-ready" REST API built with **.NET 10** and **Clean Architecture**.
+
+> **Semi-Distributed Architecture**: Horizontally scalable stateless API tier with centralized data stores (MongoDB, Redis). Supports multiple API instances behind a load balancer while maintaining data consistency through shared cache and database.
+
+> ⚠️ **Why "production-ready" in quotes?** This is a **reference architecture / starter template** demonstrating many patterns and features. More code = more potential bugs. For true production use, **tailor it to your specific needs**:
+> - Delete features you don't need (OData, API versioning, Local cache, etc.)
+> - Simplify configurations (pick ONE consistency level if that's all you need)
+> - Remove unused abstractions
+> - Keep only relevant documentation
+>
+> A real production service might use only 20-30% of this codebase. Less code = fewer bugs = easier maintenance.
 
 ## Features
 
@@ -12,7 +22,7 @@ A production-ready REST API built with **.NET 10** and **Clean Architecture**.
 - ✅ **OData Response Format** - `@odata.context`, `@odata.count`, `@odata.nextLink`, `value`
 - ✅ **OData Metadata** - `/odata/$metadata` for tool discovery (Power BI, Excel)
 - ✅ **Clean Architecture Maintained** - All queries through MediatR (business logic, validation, caching)
-- ✅ L1/L2 caching (Memory + Redis) with configurable consistency
+- ✅ Local/Remote caching (Memory + Redis) with configurable consistency
 - ✅ Rate limiting (concurrency-based)
 - ✅ Docker Compose deployment
 - ✅ Comprehensive test suite
@@ -129,11 +139,11 @@ cp .env.example .env
 │   ├── Application/      # Use cases, operations, validators
 │   └── Infrastructure/   # Interface implementations
 │       ├── Api/          # Controllers, middleware, configuration
-│       ├── Cache/        # L1/L2 cache implementations
+│       ├── Cache/        # Local/Remote cache implementations
 │       └── Persistence/  # Database, external services
 │
 ├── tests/
-│   ├── Tests/           # Unit tests (business logic + L1 cache)
+│   ├── Tests/           # Unit tests (business logic + Local cache)
 │   └── Tests.Api.E2E/   # API E2E tests (MongoDB + Redis integration)
 │
 ├── tools/
@@ -157,7 +167,7 @@ cp .env.example .env
 | [Configuration](docs/06-configuration.md) | Environment settings and options |
 | [Kestrel Architecture](docs/07-kestrel-architecture.md) | Kestrel vs Tomcat, async I/O, thread safety by layer |
 | [Docker Deployment](docs/08-docker-deployment.md) | Container setup and deployment |
-| [Caching Strategy](docs/09-caching-strategy.md) | L1/L2 cache configuration and usage |
+| [Caching Strategy](docs/09-caching-strategy.md) | Local/Remote cache configuration and usage |
 | [CancellationToken Best Practices](docs/10-cancellation-tokens.md) | Graceful cancellation and resource management |
 | [Sealed Classes](docs/11-sealed-classes.md) | Performance optimization with sealed keyword |
 | [EditorConfig](docs/12-editorconfig.md) | Code style configuration |
@@ -167,6 +177,7 @@ cp .env.example .env
 | [Observability](docs/16-observability.md) | System metrics logging and monitoring |
 | [Rate Limiting](docs/17-rate-limiting.md) | Adaptive rate limiting based on system resources |
 | [Graceful Shutdown](docs/18-graceful-shutdown.md) | SIGTERM handling, in-flight request completion, K8s integration |
+| [Validation Strategy](docs/19-validation-strategy.md) | FluentValidation + MongoDB JSON Schema |
 | [Testing Strategy](docs/testing/01-testing-strategy.md) | Unit tests vs E2E tests approach |
 | [E2E Testing](docs/testing/02-e2e-testing.md) | Run E2E tests against any environment (local/dev/stage/prod) |
 | [Load & Concurrency Tests](docs/testing/03-load-concurrency-tests.md) | NBomber load testing and concurrency tests |
@@ -277,7 +288,66 @@ See [E2E Testing](docs/testing/02-e2e-testing.md) for more details.
 
 ---
 
+## Architecture
+
+```
+                    ┌─────────────┐
+                    │Load Balancer│
+                    └──────┬──────┘
+           ┌───────────────┼───────────────┐
+           ▼               ▼               ▼
+    ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+    │ API Instance│ │ API Instance│ │ API Instance│  ← Stateless, horizontally scalable
+    │  (Local$)   │ │  (Local$)   │ │  (Local$)   │
+    └──────┬──────┘ └──────┬──────┘ └──────┬──────┘
+           │               │               │
+           └───────────────┼───────────────┘
+                           ▼
+              ┌────────────────────────┐
+              │     Redis (Shared)     │  ← Centralized cache
+              └────────────────────────┘
+                           │
+              ┌────────────────────────┐
+              │  MongoDB Atlas/Replica │  ← Centralized database
+              └────────────────────────┘
+```
+
+### What's Distributed vs Centralized
+
+| Component | Distributed? | Notes |
+|-----------|-------------|-------|
+| **API Instances** | ✅ Yes | Stateless, can run N instances |
+| **Local Cache** | ❌ Per-instance | Only for immutable/static data |
+| **Remote Cache (Redis)** | ⚠️ Single cluster | Shared across all instances |
+| **MongoDB** | ⚠️ Single cluster | Single source of truth |
+
+### Why This Pattern Works
+
+1. **Stateless API**: No session state stored in-process; all shared state goes to Redis/MongoDB
+2. **Local Cache**: Only caches truly static data (reference data, config) that doesn't need cross-instance invalidation
+3. **Remote Cache with Consistency Levels**:
+   - `Eventual`: Fast reads, eventual consistency
+   - `Strong`: Lock before write to prevent stale reads
+   - `Serializable`: Lock on reads too for strict consistency
+4. **MongoDB Transactions**: ACID guarantees for multi-document operations
+
+### Limitations
+
+- **Single point of failure**: Redis/MongoDB outage affects all instances
+- **Geographic latency**: All instances must reach the same Redis/MongoDB cluster
+- **Cache coherence**: Local caches can become stale (hence only used for static data)
+
+### For Fully Distributed Systems
+
+For global distribution, you would need:
+- Distributed cache (Redis Cluster with sharding, or Hazelcast)
+- MongoDB sharded cluster or multi-region deployment
+- Event sourcing/CQRS for cross-region consistency
+
+This architecture is ideal for **single-region deployments** with high availability needs.
+
+---
+
 ## License
 
 MIT
-

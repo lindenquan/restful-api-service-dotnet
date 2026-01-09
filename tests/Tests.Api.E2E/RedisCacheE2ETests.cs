@@ -80,6 +80,7 @@ public sealed class RedisCacheE2ETests : IAsyncLifetime
             Notes: "Cache invalidation test"
         );
         var createResponse = await _fixture.AdminClient.PostAsJsonAsync("/api/v1/orders", createRequest);
+        createResponse.EnsureSuccessStatusCode();
         var createdOrder = await createResponse.Content.ReadFromJsonAsync<OrderDto>();
         _createdOrderIds.Add(createdOrder!.Id);
 

@@ -157,18 +157,18 @@ These settings protect against slow-rate DoS attacks by requiring minimum data t
 | `InitialConnectionWindowSize` | `131072` | **128 KB** | Connection-level flow control window size. |
 | `InitialStreamWindowSize` | `98304` | **96 KB** | Per-stream flow control window size. |
 
-### Cache (L1/L2)
+### Cache (Local/Remote)
 
 ```json
 {
   "Cache": {
-    "L1": {
+    "Local": {
       "Enabled": false,
       "Consistency": "Strong",
       "TtlSeconds": 30,
       "MaxItems": 10000
     },
-    "L2": {
+    "Remote": {
       "Enabled": false,
       "Consistency": "Strong",
       "ConnectionString": "localhost:6379",
@@ -284,9 +284,9 @@ Configuration can be overridden with environment variables using `__` separator:
 # Override MongoDB connection
 MongoDB__ConnectionString=mongodb://user:pass@host:27017
 
-# Override Redis
-Redis__Enabled=true
-Redis__ConnectionString=redis:6379
+# Override Cache (Remote/Redis)
+Cache__Remote__Enabled=true
+Cache__Remote__ConnectionString=redis:6379
 
 # Override Root Admin
 RootAdmin__InitialApiKey=secure-key-here
@@ -302,7 +302,8 @@ Configuration sections are bound to C# classes in `Infrastructure/Configuration/
 |-------|---------|
 | `DatabaseSettings` | `Database` |
 | `MongoDbSettings` | `MongoDB` |
-| `RedisSettings` | `Redis` |
+| `LocalCacheSettings` | `Cache:Local` |
+| `RemoteCacheSettings` | `Cache:Remote` |
 | `RootAdminSettings` | `RootAdmin` |
 | `CorsSettings` | `Cors` |
 | `RateLimitSettings` | `RateLimiting` |
@@ -334,8 +335,8 @@ public class MyService
 | Setting | dev | stage | prod |
 |---------|-----|-------|------|
 | Database Provider | InMemory | MongoDB | MongoDB |
-| Redis Enabled | false | true | true |
-| Rate Limit | 1000 | 500 | 200 |
+| Remote Cache Enabled | false | true | true |
+| Rate Limiting Enabled | true | true | true |
 | Root Admin Auto-Create | true | true | false |
 | Log Level | Debug | Information | Warning |
 

@@ -7,16 +7,16 @@ using Shouldly;
 namespace Tests.Infrastructure.Cache;
 
 /// <summary>
-/// Unit tests for MemoryCacheService (L1 in-memory cache).
+/// Unit tests for LocalCacheService (in-memory cache for static data).
 /// </summary>
-public sealed class MemoryCacheServiceTests : IDisposable
+public sealed class LocalCacheServiceTests : IDisposable
 {
     private readonly IMemoryCache _memoryCache;
     private readonly CacheSettings _settings;
-    private readonly Mock<ILogger<MemoryCacheService>> _loggerMock;
-    private readonly MemoryCacheService _sut;
+    private readonly Mock<ILogger<LocalCacheService>> _loggerMock;
+    private readonly LocalCacheService _sut;
 
-    public MemoryCacheServiceTests()
+    public LocalCacheServiceTests()
     {
         var options = new MemoryCacheOptions
         {
@@ -26,16 +26,15 @@ public sealed class MemoryCacheServiceTests : IDisposable
 
         _settings = new CacheSettings
         {
-            L1 = new L1CacheSettings
+            Local = new LocalCacheSettings
             {
                 Enabled = true,
-                TtlSeconds = 30,
                 MaxItems = 100
             }
         };
 
-        _loggerMock = new Mock<ILogger<MemoryCacheService>>();
-        _sut = new MemoryCacheService(_memoryCache, _settings, _loggerMock.Object);
+        _loggerMock = new Mock<ILogger<LocalCacheService>>();
+        _sut = new LocalCacheService(_memoryCache, _settings, _loggerMock.Object);
     }
 
     public void Dispose()

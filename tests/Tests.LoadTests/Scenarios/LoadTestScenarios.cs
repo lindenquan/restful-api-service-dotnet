@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using DTOs.V1;
 using NBomber.Contracts;
 using NBomber.CSharp;
 using Tests.LoadTests.Configuration;
@@ -9,6 +8,7 @@ namespace Tests.LoadTests.Scenarios;
 /// <summary>
 /// Load test scenarios - measure throughput, latency, and error rates under load.
 /// These tests answer: "Can we handle X requests per second?"
+/// Uses patient creation for writes since orders consume limited prescription refills.
 /// </summary>
 public static class LoadTestScenarios
 {
@@ -22,7 +22,7 @@ public static class LoadTestScenarios
         {
             try
             {
-                var response = await client.GetAsync("/api/v1/orders?$top=10");
+                var response = await client.GetAsync("/api/v1/patients?$top=10");
 
                 return response.IsSuccessStatusCode
                     ? Response.Ok(statusCode: ((int)response.StatusCode).ToString())
@@ -44,7 +44,8 @@ public static class LoadTestScenarios
 
     /// <summary>
     /// Tests write performance under load.
-    /// Measures: throughput, latency for creating new orders.
+    /// Uses patient creation since orders consume limited prescription refills.
+    /// Measures: throughput, latency for creating new patients.
     /// </summary>
     public static ScenarioProps CreateWriteLoadScenario(
         HttpClient client,
@@ -56,13 +57,16 @@ public static class LoadTestScenarios
         {
             try
             {
-                var request = new CreateOrderRequest(
-                    PatientId: testPatientId,
-                    PrescriptionId: testPrescriptionId,
-                    Notes: $"LoadTest-{context.InvocationNumber}"
-                );
+                var request = new
+                {
+                    firstName = "LoadTest",
+                    lastName = $"Write{context.InvocationNumber}",
+                    email = $"loadtest.write.{Guid.NewGuid():N}@example.com",
+                    phone = "555-0100",
+                    dateOfBirth = DateTime.UtcNow.AddYears(-30).ToString("yyyy-MM-dd")
+                };
 
-                var response = await client.PostAsJsonAsync("/api/v1/orders", request);
+                var response = await client.PostAsJsonAsync("/api/v1/patients", request);
 
                 return response.IsSuccessStatusCode
                     ? Response.Ok(statusCode: ((int)response.StatusCode).ToString())
@@ -84,6 +88,7 @@ public static class LoadTestScenarios
 
     /// <summary>
     /// Tests mixed workload (80% reads, 20% writes).
+    /// Uses patient creation for writes since orders consume limited prescription refills.
     /// More realistic traffic pattern.
     /// </summary>
     public static ScenarioProps CreateMixedWorkloadScenario(
@@ -101,20 +106,23 @@ public static class LoadTestScenarios
 
                 if (isRead)
                 {
-                    var response = await client.GetAsync("/api/v1/orders?$top=10");
+                    var response = await client.GetAsync("/api/v1/patients?$top=10");
                     return response.IsSuccessStatusCode
                         ? Response.Ok(statusCode: ((int)response.StatusCode).ToString())
                         : Response.Fail(statusCode: ((int)response.StatusCode).ToString());
                 }
                 else
                 {
-                    var request = new CreateOrderRequest(
-                        PatientId: testPatientId,
-                        PrescriptionId: testPrescriptionId,
-                        Notes: $"LoadTest-Mixed-{context.InvocationNumber}"
-                    );
+                    var request = new
+                    {
+                        firstName = "LoadTest",
+                        lastName = $"Mixed{context.InvocationNumber}",
+                        email = $"loadtest.mixed.{Guid.NewGuid():N}@example.com",
+                        phone = "555-0100",
+                        dateOfBirth = DateTime.UtcNow.AddYears(-30).ToString("yyyy-MM-dd")
+                    };
 
-                    var response = await client.PostAsJsonAsync("/api/v1/orders", request);
+                    var response = await client.PostAsJsonAsync("/api/v1/patients", request);
                     return response.IsSuccessStatusCode
                         ? Response.Ok(statusCode: ((int)response.StatusCode).ToString())
                         : Response.Fail(statusCode: ((int)response.StatusCode).ToString());

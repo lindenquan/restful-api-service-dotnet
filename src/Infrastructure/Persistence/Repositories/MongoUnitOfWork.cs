@@ -7,12 +7,36 @@ using MongoDB.Driver;
 namespace Infrastructure.Persistence.Repositories;
 
 /// <summary>
-/// MongoDB implementation of Unit of Work.
-/// Note: MongoDB doesn't support traditional ACID transactions across collections
-/// without replica sets. This implementation provides a compatible interface.
-/// Sealed for performance optimization and design intent.
+/// MongoDB implementation of Unit of Work with transaction support.
+/// <para>
+/// <strong>Transaction Requirements:</strong>
+/// MongoDB transactions require a replica set or sharded cluster.
+/// Single-node deployments can use replica set mode for development.
+/// </para>
+/// <para>
+/// <strong>Usage:</strong>
+/// <code>
+/// await unitOfWork.BeginTransactionAsync(ct);
+/// try {
+///     await unitOfWork.Patients.AddAsync(patient, ct);
+///     await unitOfWork.Prescriptions.AddAsync(prescription, ct);
+///     await unitOfWork.CommitTransactionAsync(ct);
+/// } catch {
+///     await unitOfWork.RollbackTransactionAsync(ct);
+///     throw;
+/// }
+/// </code>
+/// </para>
+/// <para>
+/// This class is split into partial classes for maintainability:
+/// <list type="bullet">
+///   <item><description>MongoUnitOfWork.cs - Constructor and fields</description></item>
+///   <item><description>MongoUnitOfWork.Repositories.cs - Repository properties</description></item>
+///   <item><description>MongoUnitOfWork.Transactions.cs - Transaction management</description></item>
+/// </list>
+/// </para>
 /// </summary>
-public sealed class MongoUnitOfWork : IUnitOfWork
+public sealed partial class MongoUnitOfWork : IUnitOfWork, IMongoSessionProvider
 {
     private readonly IMongoDatabase _database;
     private readonly IMongoCollection<PatientDataModel> _patientsCollection;
@@ -20,6 +44,7 @@ public sealed class MongoUnitOfWork : IUnitOfWork
     private readonly IMongoCollection<PrescriptionOrderDataModel> _ordersCollection;
     private readonly IMongoCollection<UserDataModel> _usersCollection;
     private readonly IResilientExecutor _resilientExecutor;
+    private readonly TransactionSettings _transactionSettings;
 
     private IPatientRepository? _patients;
     private IPrescriptionRepository? _prescriptions;
@@ -32,6 +57,7 @@ public sealed class MongoUnitOfWork : IUnitOfWork
     {
         _database = client.GetDatabase(settings.DatabaseName);
         _resilientExecutor = resilientExecutor;
+        _transactionSettings = settings.Transaction;
 
         _patientsCollection = _database.GetCollection<PatientDataModel>(settings.PatientsCollection);
         _prescriptionsCollection = _database.GetCollection<PrescriptionDataModel>(settings.PrescriptionsCollection);
@@ -39,70 +65,19 @@ public sealed class MongoUnitOfWork : IUnitOfWork
         _usersCollection = _database.GetCollection<UserDataModel>(settings.UsersCollection);
     }
 
-    public IPatientRepository Patients =>
-        _patients ??= new MongoPatientRepository(_patientsCollection, _prescriptionsCollection, _ordersCollection, _resilientExecutor);
-
-    public IPrescriptionRepository Prescriptions =>
-        _prescriptions ??= new MongoPrescriptionRepository(_prescriptionsCollection, _patientsCollection, _resilientExecutor);
-
-    public IPrescriptionOrderRepository PrescriptionOrders =>
-        _prescriptionOrders ??= new MongoPrescriptionOrderRepository(
-            _ordersCollection, _patientsCollection, _prescriptionsCollection, _resilientExecutor);
-
-    public IUserRepository Users =>
-        _users ??= new MongoUserRepository(_usersCollection, _resilientExecutor);
-
     /// <summary>
-    /// MongoDB operations are auto-committed. This is a no-op unless in a transaction.
+    /// Gets the current transaction isolation level.
     /// </summary>
-    public Task<int> SaveChangesAsync(CancellationToken ct = default)
-    {
-        // MongoDB auto-commits each operation.
-        // Return 1 to indicate success (matching EF Core behavior).
-        return Task.FromResult(1);
-    }
+    public TransactionIsolationLevel IsolationLevel => _transactionSettings.IsolationLevel;
 
-    /// <summary>
-    /// Begin a MongoDB transaction.
-    /// Note: Requires MongoDB replica set or sharded cluster.
-    /// </summary>
-    public async Task BeginTransactionAsync(CancellationToken ct = default)
-    {
-        var client = _database.Client;
-        _session = await client.StartSessionAsync(cancellationToken: ct);
-        _session.StartTransaction();
-    }
+    #region IMongoSessionProvider
 
-    /// <summary>
-    /// Commit the current MongoDB transaction.
-    /// </summary>
-    public async Task CommitTransactionAsync(CancellationToken ct = default)
-    {
-        if (_session != null)
-        {
-            await _session.CommitTransactionAsync(ct);
-            _session.Dispose();
-            _session = null;
-        }
-    }
+    /// <inheritdoc />
+    public IClientSessionHandle? CurrentSession => _session;
 
-    /// <summary>
-    /// Rollback the current MongoDB transaction.
-    /// </summary>
-    public async Task RollbackTransactionAsync(CancellationToken ct = default)
-    {
-        if (_session != null)
-        {
-            await _session.AbortTransactionAsync(ct);
-            _session.Dispose();
-            _session = null;
-        }
-    }
+    /// <inheritdoc />
+    public bool HasActiveTransaction => _session?.IsInTransaction ?? false;
 
-    public void Dispose()
-    {
-        _session?.Dispose();
-        GC.SuppressFinalize(this);
-    }
+    #endregion
 }
 

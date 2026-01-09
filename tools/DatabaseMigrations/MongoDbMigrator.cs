@@ -25,6 +25,7 @@ public class MongoDbMigrator
         // Run all migrations in order
         await CreateCollectionsAsync();
         await CreateIndexesAsync();
+        await ApplySchemaValidationAsync();
         await CreateMigrationHistoryAsync();
 
         Console.WriteLine();
@@ -146,9 +147,230 @@ public class MongoDbMigrator
         }
     }
 
+    private async Task ApplySchemaValidationAsync()
+    {
+        Console.WriteLine("[3/4] Applying schema validation...");
+
+        await ApplyPatientSchemaAsync();
+        await ApplyPrescriptionSchemaAsync();
+        await ApplyOrderSchemaAsync();
+        await ApplyUserSchemaAsync();
+    }
+
+    private async Task ApplyPatientSchemaAsync()
+    {
+        var schema = new BsonDocument
+        {
+            ["bsonType"] = "object",
+            ["required"] = new BsonArray { "firstName", "lastName", "email", "dateOfBirth" },
+            ["properties"] = new BsonDocument
+            {
+                ["firstName"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["minLength"] = 1,
+                    ["maxLength"] = 100,
+                    ["description"] = "First name is required (1-100 characters)"
+                },
+                ["lastName"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["minLength"] = 1,
+                    ["maxLength"] = 100,
+                    ["description"] = "Last name is required (1-100 characters)"
+                },
+                ["email"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["maxLength"] = 200,
+                    ["description"] = "Valid email address required"
+                },
+                ["phone"] = new BsonDocument
+                {
+                    ["bsonType"] = new BsonArray { "string", "null" },
+                    ["maxLength"] = 20
+                },
+                ["dateOfBirth"] = new BsonDocument
+                {
+                    ["bsonType"] = "date",
+                    ["description"] = "Date of birth is required"
+                }
+            }
+        };
+
+        await ApplySchemaToCollectionAsync("patients", schema);
+    }
+
+    private async Task ApplyPrescriptionSchemaAsync()
+    {
+        var schema = new BsonDocument
+        {
+            ["bsonType"] = "object",
+            ["required"] = new BsonArray { "patientId", "medicationName", "dosage", "frequency", "quantity", "prescriberName", "expiryDate" },
+            ["properties"] = new BsonDocument
+            {
+                ["patientId"] = new BsonDocument
+                {
+                    ["bsonType"] = "binData",
+                    ["description"] = "Patient ID (UUID) is required"
+                },
+                ["medicationName"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["minLength"] = 1,
+                    ["maxLength"] = 200,
+                    ["description"] = "Medication name is required (1-200 characters)"
+                },
+                ["dosage"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["minLength"] = 1,
+                    ["maxLength"] = 50,
+                    ["description"] = "Dosage is required (1-50 characters)"
+                },
+                ["frequency"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["minLength"] = 1,
+                    ["maxLength"] = 100,
+                    ["description"] = "Frequency is required (1-100 characters)"
+                },
+                ["quantity"] = new BsonDocument
+                {
+                    ["bsonType"] = "int",
+                    ["minimum"] = 1,
+                    ["maximum"] = 1000,
+                    ["description"] = "Quantity must be between 1 and 1000"
+                },
+                ["refillsRemaining"] = new BsonDocument
+                {
+                    ["bsonType"] = "int",
+                    ["minimum"] = 0,
+                    ["maximum"] = 12,
+                    ["description"] = "Refills remaining must be between 0 and 12"
+                },
+                ["prescriberName"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["minLength"] = 1,
+                    ["maxLength"] = 200,
+                    ["description"] = "Prescriber name is required (1-200 characters)"
+                },
+                ["expiryDate"] = new BsonDocument
+                {
+                    ["bsonType"] = "date",
+                    ["description"] = "Expiry date is required"
+                },
+                ["instructions"] = new BsonDocument
+                {
+                    ["bsonType"] = new BsonArray { "string", "null" },
+                    ["maxLength"] = 1000
+                }
+            }
+        };
+
+        await ApplySchemaToCollectionAsync("prescriptions", schema);
+    }
+
+    private async Task ApplyOrderSchemaAsync()
+    {
+        var schema = new BsonDocument
+        {
+            ["bsonType"] = "object",
+            ["required"] = new BsonArray { "patientId", "prescriptionId", "orderDate", "status" },
+            ["properties"] = new BsonDocument
+            {
+                ["patientId"] = new BsonDocument
+                {
+                    ["bsonType"] = "binData",
+                    ["description"] = "Patient ID (UUID) is required"
+                },
+                ["prescriptionId"] = new BsonDocument
+                {
+                    ["bsonType"] = "binData",
+                    ["description"] = "Prescription ID (UUID) is required"
+                },
+                ["orderDate"] = new BsonDocument
+                {
+                    ["bsonType"] = "date",
+                    ["description"] = "Order date is required"
+                },
+                ["status"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["enum"] = new BsonArray { "Pending", "Processing", "Ready", "Completed", "Cancelled" },
+                    ["description"] = "Order status (Pending, Processing, Ready, Completed, Cancelled)"
+                },
+                ["notes"] = new BsonDocument
+                {
+                    ["bsonType"] = new BsonArray { "string", "null" },
+                    ["maxLength"] = 500
+                }
+            }
+        };
+
+        await ApplySchemaToCollectionAsync("orders", schema);
+    }
+
+    private async Task ApplyUserSchemaAsync()
+    {
+        var schema = new BsonDocument
+        {
+            ["bsonType"] = "object",
+            ["required"] = new BsonArray { "email", "apiKeyHash", "userType" },
+            ["properties"] = new BsonDocument
+            {
+                ["email"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["maxLength"] = 200,
+                    ["description"] = "Email is required"
+                },
+                ["apiKeyHash"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["description"] = "API key hash is required"
+                },
+                ["userType"] = new BsonDocument
+                {
+                    ["bsonType"] = "string",
+                    ["enum"] = new BsonArray { "Regular", "Admin" },
+                    ["description"] = "User type (Regular or Admin)"
+                },
+                ["isActive"] = new BsonDocument
+                {
+                    ["bsonType"] = "bool"
+                }
+            }
+        };
+
+        await ApplySchemaToCollectionAsync("users", schema);
+    }
+
+    private async Task ApplySchemaToCollectionAsync(string collectionName, BsonDocument schema)
+    {
+        try
+        {
+            var command = new BsonDocument
+            {
+                ["collMod"] = collectionName,
+                ["validator"] = new BsonDocument { ["$jsonSchema"] = schema },
+                ["validationLevel"] = "strict",
+                ["validationAction"] = "error"
+            };
+
+            await _database.RunCommandAsync<BsonDocument>(command);
+            Console.WriteLine($"  ✓ Schema validation applied: {collectionName}");
+        }
+        catch (MongoCommandException ex)
+        {
+            Console.WriteLine($"  ⚠ Schema validation failed for {collectionName}: {ex.Message}");
+        }
+    }
+
     private async Task CreateMigrationHistoryAsync()
     {
-        Console.WriteLine("[3/3] Recording migration...");
+        Console.WriteLine("[4/4] Recording migration...");
 
         var collection = _database.GetCollection<BsonDocument>("migrationHistory");
         var version = "1.0.0";

@@ -114,7 +114,7 @@ public sealed class CreatePatientHandler : IRequestHandler<CreatePatientCommand,
 │  │ • Configuration/Settings objects (immutable)                          │  │
 │  │ • Resilience Pipelines (Polly)                                        │  │
 │  │ • IApiKeyGenerator                                                    │  │
-│  │ • ICacheService (HybridCacheService)                                  │  │
+│  │ • ICacheService (LocalCacheService or NullCacheService)               │  │
 │  │ • Background Services (SystemMetricsService)                          │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────────────────┤

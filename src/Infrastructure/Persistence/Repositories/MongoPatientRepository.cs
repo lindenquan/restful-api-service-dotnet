@@ -8,7 +8,7 @@ using MongoDB.Driver;
 namespace Infrastructure.Persistence.Repositories;
 
 /// <summary>
-/// MongoDB implementation of IPatientRepository.
+/// MongoDB implementation of IPatientRepository with transaction support.
 /// Sealed for performance optimization and design intent.
 /// </summary>
 public sealed class MongoPatientRepository : MongoRepository<Patient, PatientDataModel>, IPatientRepository
@@ -20,8 +20,9 @@ public sealed class MongoPatientRepository : MongoRepository<Patient, PatientDat
         IMongoCollection<PatientDataModel> collection,
         IMongoCollection<PrescriptionDataModel> prescriptionsCollection,
         IMongoCollection<PrescriptionOrderDataModel> ordersCollection,
-        IResilientExecutor resilientExecutor)
-        : base(collection, resilientExecutor)
+        IResilientExecutor resilientExecutor,
+        IMongoSessionProvider? sessionProvider = null)
+        : base(collection, resilientExecutor, sessionProvider)
     {
         _prescriptionsCollection = prescriptionsCollection;
         _ordersCollection = ordersCollection;
@@ -32,7 +33,14 @@ public sealed class MongoPatientRepository : MongoRepository<Patient, PatientDat
 
     public async Task<Patient?> GetByEmailAsync(string email, CancellationToken ct = default)
     {
-        var model = await _collection.Find(u => u.Email == email && !u.Metadata.IsDeleted).FirstOrDefaultAsync(ct);
+        var filter = Builders<PatientDataModel>.Filter.And(
+            Builders<PatientDataModel>.Filter.Eq(u => u.Email, email),
+            Builders<PatientDataModel>.Filter.Eq(u => u.Metadata.IsDeleted, false));
+
+        var model = Session != null
+            ? await _collection.Find(Session, filter).FirstOrDefaultAsync(ct)
+            : await _collection.Find(filter).FirstOrDefaultAsync(ct);
+
         return model == null ? null : ToDomain(model);
     }
 
@@ -43,11 +51,15 @@ public sealed class MongoPatientRepository : MongoRepository<Patient, PatientDat
             return null;
 
         // MongoDB doesn't have native joins - manually load related data
-        var prescriptionModels = await _prescriptionsCollection
-            .Find(p => p.PatientId == id && !p.Metadata.IsDeleted)
-            .ToListAsync(ct);
+        var prescriptionFilter = Builders<PrescriptionDataModel>.Filter.And(
+            Builders<PrescriptionDataModel>.Filter.Eq(p => p.PatientId, id),
+            Builders<PrescriptionDataModel>.Filter.Eq(p => p.Metadata.IsDeleted, false));
 
-        patient.Prescriptions = prescriptionModels.Select(PrescriptionPersistenceMapper.ToDomain).ToList();
+        var prescriptionModels = Session != null
+            ? await _prescriptionsCollection.Find(Session, prescriptionFilter).ToListAsync(ct)
+            : await _prescriptionsCollection.Find(prescriptionFilter).ToListAsync(ct);
+
+        patient.Prescriptions = prescriptionModels.Select(m => PrescriptionPersistenceMapper.ToDomain(m)).ToList();
         return patient;
     }
 
@@ -58,19 +70,27 @@ public sealed class MongoPatientRepository : MongoRepository<Patient, PatientDat
             return null;
 
         // Load orders with their prescriptions
-        var orderModels = await _ordersCollection
-            .Find(o => o.PatientId == id && !o.Metadata.IsDeleted)
-            .ToListAsync(ct);
+        var orderFilter = Builders<PrescriptionOrderDataModel>.Filter.And(
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.PatientId, id),
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Metadata.IsDeleted, false));
+
+        var orderModels = Session != null
+            ? await _ordersCollection.Find(Session, orderFilter).ToListAsync(ct)
+            : await _ordersCollection.Find(orderFilter).ToListAsync(ct);
 
         // Load prescriptions for each order
         var prescriptionIds = orderModels.Select(o => o.PrescriptionId).Distinct().ToList();
-        var prescriptionModels = await _prescriptionsCollection
-            .Find(p => prescriptionIds.Contains(p.Id) && !p.Metadata.IsDeleted)
-            .ToListAsync(ct);
+        var prescriptionFilter = Builders<PrescriptionDataModel>.Filter.And(
+            Builders<PrescriptionDataModel>.Filter.In(p => p.Id, prescriptionIds),
+            Builders<PrescriptionDataModel>.Filter.Eq(p => p.Metadata.IsDeleted, false));
 
-        var prescriptionDict = prescriptionModels.ToDictionary(p => p.Id, PrescriptionPersistenceMapper.ToDomain);
+        var prescriptionModels = Session != null
+            ? await _prescriptionsCollection.Find(Session, prescriptionFilter).ToListAsync(ct)
+            : await _prescriptionsCollection.Find(prescriptionFilter).ToListAsync(ct);
 
-        var orders = orderModels.Select(PrescriptionOrderPersistenceMapper.ToDomain).ToList();
+        var prescriptionDict = prescriptionModels.ToDictionary(p => p.Id, m => PrescriptionPersistenceMapper.ToDomain(m));
+
+        var orders = orderModels.Select(m => PrescriptionOrderPersistenceMapper.ToDomain(m)).ToList();
         foreach (var order in orders)
         {
             if (prescriptionDict.TryGetValue(order.PrescriptionId, out var prescription))

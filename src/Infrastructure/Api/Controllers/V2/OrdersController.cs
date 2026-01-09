@@ -7,6 +7,7 @@ using Infrastructure.Api.Authorization;
 using Infrastructure.Api.Controllers.V2.Mappers;
 using Infrastructure.Api.Helpers;
 using Infrastructure.Api.Services;
+using Infrastructure.Cache;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -73,9 +74,12 @@ public class OrdersController : ControllerBase
 
     /// <summary>
     /// Get prescription order by ID.
+    /// DEMO: Uses RemoteCache with Serializable consistency - readers wait during writes.
+    /// Use for critical data where stale reads are unacceptable.
     /// </summary>
     [HttpGet("{id:guid}")]
     [Authorize(Policy = PolicyNames.CanRead)]
+    [RemoteCache(CacheConsistency.Serializable, TtlSeconds = 60, KeyPrefix = "order")] // Serializable, 1-min TTL
     public async Task<ActionResult<PrescriptionOrderDto>> GetById(Guid id, CancellationToken ct)
     {
         var order = await _mediator.Send(new GetOrderByIdQuery(id), ct);
@@ -117,9 +121,11 @@ public class OrdersController : ControllerBase
 
     /// <summary>
     /// Get prescription orders by status.
+    /// DEMO: Uses RemoteCache with default (Eventual) consistency and no custom TTL.
     /// </summary>
     [HttpGet("status/{status}")]
     [Authorize(Policy = PolicyNames.CanRead)]
+    [RemoteCache(KeyPrefix = "orders-by-status")] // Eventual consistency (default), default TTL from config
     public async Task<ActionResult<IEnumerable<PrescriptionOrderDto>>> GetByStatus(string status, CancellationToken ct)
     {
         if (!Enum.TryParse<OrderStatus>(status, true, out var orderStatus))

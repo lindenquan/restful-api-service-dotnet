@@ -3,16 +3,13 @@ using Application.Interfaces.Services;
 namespace Infrastructure.Cache;
 
 /// <summary>
-/// No-op cache service implementation used when caching is disabled.
-/// All operations are pass-through with no caching.
+/// No-op cache service implementation for when caching is disabled.
+/// All operations are no-ops and return default values.
 /// Sealed for performance optimization and design intent.
 /// </summary>
 public sealed class NullCacheService : ICacheService
 {
-    public void Set<T>(string key, T value, TimeSpan? expiry = null)
-    {
-        // No-op
-    }
+    public void Set<T>(string key, T value, TimeSpan? expiry = null) { }
 
     public T? Get<T>(string key) => default;
 
@@ -22,21 +19,13 @@ public sealed class NullCacheService : ICacheService
         return false;
     }
 
-    public void Remove(string key)
-    {
-        // No-op
-    }
+    public void Remove(string key) { }
 
-    public void RemoveByPrefix(string prefix)
-    {
-        // No-op
-    }
+    public void RemoveByPrefix(string prefix) { }
 
     public bool Exists(string key) => false;
 
     public T GetOrAdd<T>(string key, Func<T> factory, TimeSpan? expiry = null) => factory();
 
-    public async Task<T> GetOrAddAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiry = null)
-        => await factory();
+    public Task<T> GetOrAddAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiry = null) => factory();
 }
-

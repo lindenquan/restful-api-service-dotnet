@@ -94,69 +94,52 @@ public sealed class ApiE2ETestFixture : IAsyncLifetime, IDisposable
     /// <summary>
     /// Seeds test data via API calls (works for both local and remote).
     /// Stores created IDs in TestPatientId and TestPrescriptionId properties.
+    /// Always creates fresh test data to ensure prescription belongs to patient and has refills.
     /// </summary>
     private async Task SeedTestDataViaApiAsync()
     {
-        // Get or create test patient
-        var patientsResponse = await AdminClient.GetAsync("/api/v1/patients?$top=1");
-        if (patientsResponse.IsSuccessStatusCode)
+        // Always create a fresh test patient to ensure clean state
+        var patientRequest = new
         {
-            var patients = await patientsResponse.Content.ReadFromJsonAsync<PagedApiResponse<PatientDetailDto>>();
-            if (patients?.Value.Count > 0)
-            {
-                TestPatientId = patients.Value[0].Id;
-            }
-            else
-            {
-                // Create test patient
-                var patientRequest = new
-                {
-                    FirstName = "E2ETest",
-                    LastName = "Patient",
-                    Email = $"e2e-{Guid.NewGuid():N}@test.com",
-                    Phone = "555-0100",
-                    DateOfBirth = new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-                };
-                var createPatientResponse = await AdminClient.PostAsJsonAsync("/api/v1/patients", patientRequest);
-                if (createPatientResponse.IsSuccessStatusCode)
-                {
-                    var createdPatient = await createPatientResponse.Content.ReadFromJsonAsync<PatientDetailDto>();
-                    TestPatientId = createdPatient!.Id;
-                }
-            }
+            FirstName = "E2EOrderTest",
+            LastName = "Patient",
+            Email = $"e2e-order-{Guid.NewGuid():N}@test.com",
+            Phone = "555-0100",
+            DateOfBirth = new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+        };
+        var createPatientResponse = await AdminClient.PostAsJsonAsync("/api/v1/patients", patientRequest);
+        if (createPatientResponse.IsSuccessStatusCode)
+        {
+            var createdPatient = await createPatientResponse.Content.ReadFromJsonAsync<PatientDetailDto>();
+            TestPatientId = createdPatient!.Id;
+        }
+        else
+        {
+            throw new InvalidOperationException($"Failed to create test patient: {await createPatientResponse.Content.ReadAsStringAsync()}");
         }
 
-        // Get or create test prescription
-        var prescriptionsResponse = await AdminClient.GetAsync("/api/v1/prescriptions?$top=1");
-        if (prescriptionsResponse.IsSuccessStatusCode)
+        // Always create a fresh prescription for the test patient with refills
+        var prescriptionRequest = new
         {
-            var prescriptions = await prescriptionsResponse.Content.ReadFromJsonAsync<PagedApiResponse<PrescriptionDetailDto>>();
-            if (prescriptions?.Value.Count > 0)
-            {
-                TestPrescriptionId = prescriptions.Value[0].Id;
-            }
-            else if (TestPatientId != Guid.Empty)
-            {
-                // Create test prescription
-                var prescriptionRequest = new
-                {
-                    PatientId = TestPatientId,
-                    MedicationName = "E2E-Amoxicillin",
-                    Dosage = "500mg",
-                    Frequency = "Three times daily",
-                    Quantity = 30,
-                    RefillsAllowed = 2,
-                    PrescriberName = "Dr. E2E",
-                    ExpiryDate = DateTime.UtcNow.AddMonths(6),
-                    Instructions = "Take with food"
-                };
-                var createPrescriptionResponse = await AdminClient.PostAsJsonAsync("/api/v1/prescriptions", prescriptionRequest);
-                if (createPrescriptionResponse.IsSuccessStatusCode)
-                {
-                    var createdPrescription = await createPrescriptionResponse.Content.ReadFromJsonAsync<PrescriptionDetailDto>();
-                    TestPrescriptionId = createdPrescription!.Id;
-                }
-            }
+            PatientId = TestPatientId,
+            MedicationName = "E2E-OrderTest-Amoxicillin",
+            Dosage = "500mg",
+            Frequency = "Three times daily",
+            Quantity = 30,
+            RefillsAllowed = 12, // Maximum allowed refills per validation rules
+            PrescriberName = "Dr. E2E OrderTest",
+            ExpiryDate = DateTime.UtcNow.AddMonths(6),
+            Instructions = "Take with food"
+        };
+        var createPrescriptionResponse = await AdminClient.PostAsJsonAsync("/api/v1/prescriptions", prescriptionRequest);
+        if (createPrescriptionResponse.IsSuccessStatusCode)
+        {
+            var createdPrescription = await createPrescriptionResponse.Content.ReadFromJsonAsync<PrescriptionDetailDto>();
+            TestPrescriptionId = createdPrescription!.Id;
+        }
+        else
+        {
+            throw new InvalidOperationException($"Failed to create test prescription: {await createPrescriptionResponse.Content.ReadAsStringAsync()}");
         }
     }
 

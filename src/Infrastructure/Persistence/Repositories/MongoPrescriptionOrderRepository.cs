@@ -1,6 +1,5 @@
 using Application.Interfaces.Repositories;
 using Domain;
-using DTOs.Shared;
 using Infrastructure.Persistence.Mappers;
 using Infrastructure.Persistence.Models;
 using Infrastructure.Resilience;
@@ -9,10 +8,17 @@ using MongoDB.Driver;
 namespace Infrastructure.Persistence.Repositories;
 
 /// <summary>
-/// MongoDB implementation of IPrescriptionOrderRepository.
-/// Sealed for performance optimization and design intent.
+/// MongoDB implementation of IPrescriptionOrderRepository with transaction support.
+/// <para>
+/// This class is split into partial classes for maintainability:
+/// <list type="bullet">
+///   <item><description>MongoPrescriptionOrderRepository.cs - Core queries and constructor</description></item>
+///   <item><description>MongoPrescriptionOrderRepository.Paged.cs - Paged query methods</description></item>
+///   <item><description>MongoPrescriptionOrderRepository.Loaders.cs - Related entity loading</description></item>
+/// </list>
+/// </para>
 /// </summary>
-public sealed class MongoPrescriptionOrderRepository : MongoRepository<PrescriptionOrder, PrescriptionOrderDataModel>, IPrescriptionOrderRepository
+public sealed partial class MongoPrescriptionOrderRepository : MongoRepository<PrescriptionOrder, PrescriptionOrderDataModel>, IPrescriptionOrderRepository
 {
     private readonly IMongoCollection<PatientDataModel> _patientsCollection;
     private readonly IMongoCollection<PrescriptionDataModel> _prescriptionsCollection;
@@ -21,8 +27,9 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
         IMongoCollection<PrescriptionOrderDataModel> collection,
         IMongoCollection<PatientDataModel> patientsCollection,
         IMongoCollection<PrescriptionDataModel> prescriptionsCollection,
-        IResilientExecutor resilientExecutor)
-        : base(collection, resilientExecutor)
+        IResilientExecutor resilientExecutor,
+        IMongoSessionProvider? sessionProvider = null)
+        : base(collection, resilientExecutor, sessionProvider)
     {
         _patientsCollection = patientsCollection;
         _prescriptionsCollection = prescriptionsCollection;
@@ -36,10 +43,13 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
 
     public async Task<IEnumerable<PrescriptionOrder>> GetByPatientIdAsync(Guid patientId, CancellationToken ct = default)
     {
-        var orderModels = await _collection
-            .Find(o => o.PatientId == patientId && !o.Metadata.IsDeleted)
-            .SortByDescending(o => o.OrderDate)
-            .ToListAsync(ct);
+        var filter = Builders<PrescriptionOrderDataModel>.Filter.And(
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.PatientId, patientId),
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Metadata.IsDeleted, false));
+
+        var orderModels = Session != null
+            ? await _collection.Find(Session, filter).SortByDescending(o => o.OrderDate).ToListAsync(ct)
+            : await _collection.Find(filter).SortByDescending(o => o.OrderDate).ToListAsync(ct);
 
         var orders = orderModels.Select(ToDomain).ToList();
         await LoadPrescriptionsAsync(orders, ct);
@@ -48,10 +58,13 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
 
     public async Task<IEnumerable<PrescriptionOrder>> GetByPrescriptionIdAsync(Guid prescriptionId, CancellationToken ct = default)
     {
-        var orderModels = await _collection
-            .Find(o => o.PrescriptionId == prescriptionId && !o.Metadata.IsDeleted)
-            .SortByDescending(o => o.OrderDate)
-            .ToListAsync(ct);
+        var filter = Builders<PrescriptionOrderDataModel>.Filter.And(
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.PrescriptionId, prescriptionId),
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Metadata.IsDeleted, false));
+
+        var orderModels = Session != null
+            ? await _collection.Find(Session, filter).SortByDescending(o => o.OrderDate).ToListAsync(ct)
+            : await _collection.Find(filter).SortByDescending(o => o.OrderDate).ToListAsync(ct);
 
         var orders = orderModels.Select(ToDomain).ToList();
         await LoadPatientsAsync(orders, ct);
@@ -61,10 +74,13 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
     public async Task<IEnumerable<PrescriptionOrder>> GetByStatusAsync(OrderStatus status, CancellationToken ct = default)
     {
         var dataStatus = (OrderStatusData)status;
-        var orderModels = await _collection
-            .Find(o => o.Status == dataStatus && !o.Metadata.IsDeleted)
-            .SortByDescending(o => o.OrderDate)
-            .ToListAsync(ct);
+        var filter = Builders<PrescriptionOrderDataModel>.Filter.And(
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Status, dataStatus),
+            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Metadata.IsDeleted, false));
+
+        var orderModels = Session != null
+            ? await _collection.Find(Session, filter).SortByDescending(o => o.OrderDate).ToListAsync(ct)
+            : await _collection.Find(filter).SortByDescending(o => o.OrderDate).ToListAsync(ct);
 
         var orders = orderModels.Select(ToDomain).ToList();
         await LoadDetailsAsync(orders, ct);
@@ -83,210 +99,34 @@ public sealed class MongoPrescriptionOrderRepository : MongoRepository<Prescript
             return null;
 
         // Load patient
-        var patientModel = await _patientsCollection
-            .Find(p => p.Id == order.PatientId && !p.Metadata.IsDeleted)
-            .FirstOrDefaultAsync(ct);
+        var patientFilter = Builders<PatientDataModel>.Filter.And(
+            Builders<PatientDataModel>.Filter.Eq(p => p.Id, order.PatientId),
+            Builders<PatientDataModel>.Filter.Eq(p => p.Metadata.IsDeleted, false));
+
+        var patientModel = Session != null
+            ? await _patientsCollection.Find(Session, patientFilter).FirstOrDefaultAsync(ct)
+            : await _patientsCollection.Find(patientFilter).FirstOrDefaultAsync(ct);
+
         if (patientModel != null)
         {
             order.Patient = PatientPersistenceMapper.ToDomain(patientModel);
         }
 
         // Load prescription
-        var prescriptionModel = await _prescriptionsCollection
-            .Find(p => p.Id == order.PrescriptionId && !p.Metadata.IsDeleted)
-            .FirstOrDefaultAsync(ct);
+        var prescriptionFilter = Builders<PrescriptionDataModel>.Filter.And(
+            Builders<PrescriptionDataModel>.Filter.Eq(p => p.Id, order.PrescriptionId),
+            Builders<PrescriptionDataModel>.Filter.Eq(p => p.Metadata.IsDeleted, false));
+
+        var prescriptionModel = Session != null
+            ? await _prescriptionsCollection.Find(Session, prescriptionFilter).FirstOrDefaultAsync(ct)
+            : await _prescriptionsCollection.Find(prescriptionFilter).FirstOrDefaultAsync(ct);
+
         if (prescriptionModel != null)
         {
             order.Prescription = PrescriptionPersistenceMapper.ToDomain(prescriptionModel);
         }
 
         return order;
-    }
-
-    /// <summary>
-    /// Load prescriptions for a list of orders.
-    /// </summary>
-    private async Task LoadPrescriptionsAsync(List<PrescriptionOrder> orders, CancellationToken ct)
-    {
-        var prescriptionIds = orders.Select(o => o.PrescriptionId).Distinct().ToList();
-        var prescriptionModels = await _prescriptionsCollection
-            .Find(p => prescriptionIds.Contains(p.Id) && !p.Metadata.IsDeleted)
-            .ToListAsync(ct);
-
-        var prescriptionDict = prescriptionModels.ToDictionary(
-            p => p.Id,
-            p => PrescriptionPersistenceMapper.ToDomain(p));
-
-        foreach (var order in orders)
-        {
-            if (prescriptionDict.TryGetValue(order.PrescriptionId, out var prescription))
-            {
-                order.Prescription = prescription;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Load patients for a list of orders.
-    /// </summary>
-    private async Task LoadPatientsAsync(List<PrescriptionOrder> orders, CancellationToken ct)
-    {
-        var patientIds = orders.Select(o => o.PatientId).Distinct().ToList();
-        var patientModels = await _patientsCollection
-            .Find(p => patientIds.Contains(p.Id) && !p.Metadata.IsDeleted)
-            .ToListAsync(ct);
-
-        var patientDict = patientModels.ToDictionary(
-            p => p.Id,
-            p => PatientPersistenceMapper.ToDomain(p));
-
-        foreach (var order in orders)
-        {
-            if (patientDict.TryGetValue(order.PatientId, out var patient))
-            {
-                order.Patient = patient;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Load both patients and prescriptions for a list of orders.
-    /// </summary>
-    private async Task LoadDetailsAsync(List<PrescriptionOrder> orders, CancellationToken ct)
-    {
-        await LoadPatientsAsync(orders, ct);
-        await LoadPrescriptionsAsync(orders, ct);
-    }
-
-    public async Task<IEnumerable<PrescriptionOrder>> GetAllWithDetailsAsync(CancellationToken ct = default)
-    {
-        var orders = (await GetAllAsync(ct)).ToList();
-        await LoadDetailsAsync(orders, ct);
-        return orders;
-    }
-
-    public async Task<IEnumerable<PrescriptionOrder>> GetByPatientIdWithDetailsAsync(Guid patientId, CancellationToken ct = default)
-    {
-        var orderModels = await _collection
-            .Find(o => o.PatientId == patientId && !o.Metadata.IsDeleted)
-            .SortByDescending(o => o.OrderDate)
-            .ToListAsync(ct);
-
-        var orders = orderModels.Select(ToDomain).ToList();
-        await LoadDetailsAsync(orders, ct);
-        return orders;
-    }
-
-    public async Task<IEnumerable<PrescriptionOrder>> GetByStatusWithDetailsAsync(OrderStatus status, CancellationToken ct = default)
-    {
-        var dataStatus = (OrderStatusData)status;
-        var orderModels = await _collection
-            .Find(o => o.Status == dataStatus && !o.Metadata.IsDeleted)
-            .SortByDescending(o => o.OrderDate)
-            .ToListAsync(ct);
-
-        var orders = orderModels.Select(ToDomain).ToList();
-        await LoadDetailsAsync(orders, ct);
-        return orders;
-    }
-
-    public async Task<PagedData<PrescriptionOrder>> GetPagedWithDetailsAsync(
-        int skip,
-        int top,
-        bool includeCount = false,
-        string? orderBy = null,
-        bool descending = false,
-        CancellationToken ct = default)
-    {
-        var filter = Builders<PrescriptionOrderDataModel>.Filter.Eq(e => e.Metadata.IsDeleted, false);
-
-        var query = _collection.Find(filter);
-        query = ApplyOrderingForOrders(query, orderBy, descending);
-
-        var orderModels = await query
-            .Skip(skip)
-            .Limit(top)
-            .ToListAsync(ct);
-
-        long totalCount = 0;
-        if (includeCount)
-        {
-            totalCount = await _collection.CountDocumentsAsync(filter, cancellationToken: ct);
-        }
-
-        var orders = orderModels.Select(ToDomain).ToList();
-        await LoadDetailsAsync(orders, ct);
-
-        return new PagedData<PrescriptionOrder>(orders, totalCount);
-    }
-
-    public async Task<PagedData<PrescriptionOrder>> GetPagedByPatientWithDetailsAsync(
-        Guid patientId,
-        int skip,
-        int top,
-        bool includeCount = false,
-        string? orderBy = null,
-        bool descending = false,
-        CancellationToken ct = default)
-    {
-        var filter = Builders<PrescriptionOrderDataModel>.Filter.And(
-            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.PatientId, patientId),
-            Builders<PrescriptionOrderDataModel>.Filter.Eq(o => o.Metadata.IsDeleted, false));
-
-        var query = _collection.Find(filter);
-        query = ApplyOrderingForOrders(query, orderBy, descending);
-
-        var orderModels = await query
-            .Skip(skip)
-            .Limit(top)
-            .ToListAsync(ct);
-
-        long totalCount = 0;
-        if (includeCount)
-        {
-            totalCount = await _collection.CountDocumentsAsync(filter, cancellationToken: ct);
-        }
-
-        var orders = orderModels.Select(ToDomain).ToList();
-        await LoadDetailsAsync(orders, ct);
-
-        return new PagedData<PrescriptionOrder>(orders, totalCount);
-    }
-
-    /// <summary>
-    /// Apply ordering specific to PrescriptionOrder fields.
-    /// </summary>
-    private static IFindFluent<PrescriptionOrderDataModel, PrescriptionOrderDataModel> ApplyOrderingForOrders(
-        IFindFluent<PrescriptionOrderDataModel, PrescriptionOrderDataModel> query,
-        string? orderBy,
-        bool descending)
-    {
-        if (string.IsNullOrEmpty(orderBy))
-        {
-            return query.SortByDescending(e => e.OrderDate);
-        }
-
-        var normalizedOrderBy = orderBy.ToLowerInvariant();
-
-        return normalizedOrderBy switch
-        {
-            "orderdate" => descending
-                ? query.SortByDescending(e => e.OrderDate)
-                : query.SortBy(e => e.OrderDate),
-            "status" => descending
-                ? query.SortByDescending(e => e.Status)
-                : query.SortBy(e => e.Status),
-            "fulfilleddate" => descending
-                ? query.SortByDescending(e => e.FulfilledDate)
-                : query.SortBy(e => e.FulfilledDate),
-            "pickupdate" => descending
-                ? query.SortByDescending(e => e.PickupDate)
-                : query.SortBy(e => e.PickupDate),
-            "createdat" => descending
-                ? query.SortByDescending(e => e.Metadata.CreatedAt)
-                : query.SortBy(e => e.Metadata.CreatedAt),
-            _ => query.SortByDescending(e => e.OrderDate)
-        };
     }
 }
 

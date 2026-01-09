@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net.Http.Json;
-using DTOs.V1;
 using NBomber.Contracts;
 using NBomber.CSharp;
 using Tests.LoadTests.Configuration;
@@ -14,7 +13,8 @@ namespace Tests.LoadTests.Scenarios;
 public static class ConcurrencyTestScenarios
 {
     /// <summary>
-    /// Tests that concurrent order creation doesn't produce duplicate IDs or data corruption.
+    /// Tests that concurrent patient creation doesn't produce duplicate IDs or data corruption.
+    /// Uses patient creation instead of orders since orders consume prescription refills.
     /// Collects all created IDs and verifies uniqueness after the test.
     /// </summary>
     public static (ScenarioProps Scenario, ConcurrentBag<Guid> CreatedIds) CreateConcurrentWritesScenario(
@@ -29,20 +29,26 @@ public static class ConcurrencyTestScenarios
         {
             try
             {
-                var request = new CreateOrderRequest(
-                    PatientId: testPatientId,
-                    PrescriptionId: testPrescriptionId,
-                    Notes: $"ConcurrencyTest-{context.InvocationNumber}-{Guid.NewGuid():N}"
-                );
+                // Use patient creation for concurrent write tests since orders consume limited refills
+                var request = new
+                {
+                    firstName = "LoadTest",
+                    lastName = $"Patient{context.InvocationNumber}",
+                    email = $"loadtest.{Guid.NewGuid():N}@example.com",
+                    phone = "555-0100",
+                    dateOfBirth = DateTime.UtcNow.AddYears(-30).ToString("yyyy-MM-dd")
+                };
 
-                var response = await client.PostAsJsonAsync("/api/v1/orders", request);
+                var response = await client.PostAsJsonAsync("/api/v1/patients", request);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var created = await response.Content.ReadFromJsonAsync<OrderDto>();
-                    if (created != null)
+                    var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                    if (json.TryGetProperty("id", out var idElement) &&
+                        idElement.ValueKind == System.Text.Json.JsonValueKind.String &&
+                        Guid.TryParse(idElement.GetString(), out var id))
                     {
-                        createdIds.Add(created.Id);
+                        createdIds.Add(id);
                     }
                     return Response.Ok(statusCode: ((int)response.StatusCode).ToString());
                 }
@@ -102,7 +108,8 @@ public static class ConcurrencyTestScenarios
 
     /// <summary>
     /// Tests concurrent read-after-write consistency.
-    /// Creates an order then immediately reads it - verifies no stale cache reads.
+    /// Creates a patient then immediately reads it - verifies no stale cache reads.
+    /// Uses patient creation instead of orders since orders consume prescription refills.
     /// </summary>
     public static (ScenarioProps Scenario, ConcurrentBag<bool> ConsistencyResults) CreateReadAfterWriteScenario(
         HttpClient client,
@@ -116,35 +123,44 @@ public static class ConcurrencyTestScenarios
         {
             try
             {
-                // 1. Create order
-                var request = new CreateOrderRequest(
-                    PatientId: testPatientId,
-                    PrescriptionId: testPrescriptionId,
-                    Notes: $"ReadAfterWrite-{context.InvocationNumber}"
-                );
+                // 1. Create patient (instead of order to avoid refill limits)
+                var uniqueEmail = $"raw.{Guid.NewGuid():N}@example.com";
+                var request = new
+                {
+                    firstName = "ReadAfterWrite",
+                    lastName = $"Test{context.InvocationNumber}",
+                    email = uniqueEmail,
+                    phone = "555-0100",
+                    dateOfBirth = DateTime.UtcNow.AddYears(-30).ToString("yyyy-MM-dd")
+                };
 
-                var createResponse = await client.PostAsJsonAsync("/api/v1/orders", request);
+                var createResponse = await client.PostAsJsonAsync("/api/v1/patients", request);
                 if (!createResponse.IsSuccessStatusCode)
                 {
                     return Response.Fail(statusCode: ((int)createResponse.StatusCode).ToString());
                 }
 
-                var created = await createResponse.Content.ReadFromJsonAsync<OrderDto>();
-                if (created == null)
+                var json = await createResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                if (!json.TryGetProperty("id", out var idElement) ||
+                    idElement.ValueKind != System.Text.Json.JsonValueKind.String ||
+                    !Guid.TryParse(idElement.GetString(), out var createdId))
                 {
-                    return Response.Fail(message: "Failed to deserialize created order");
+                    return Response.Fail(message: "Failed to deserialize created patient");
                 }
 
                 // 2. Immediately read it back
-                var getResponse = await client.GetAsync($"/api/v1/orders/{created.Id}");
+                var getResponse = await client.GetAsync($"/api/v1/patients/{createdId}");
                 if (!getResponse.IsSuccessStatusCode)
                 {
                     consistencyResults.Add(false);
                     return Response.Fail(message: "Read after write failed");
                 }
 
-                var retrieved = await getResponse.Content.ReadFromJsonAsync<OrderDto>();
-                var isConsistent = retrieved?.Id == created.Id && retrieved?.Notes == created.Notes;
+                var retrievedJson = await getResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                var isConsistent = retrievedJson.TryGetProperty("id", out var retrievedIdElement) &&
+                                   retrievedIdElement.GetString() == createdId.ToString() &&
+                                   retrievedJson.TryGetProperty("email", out var emailElement) &&
+                                   emailElement.GetString() == uniqueEmail;
                 consistencyResults.Add(isConsistent);
 
                 return isConsistent

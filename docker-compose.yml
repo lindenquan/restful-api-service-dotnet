@@ -31,12 +31,16 @@ services:
       MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
     volumes:
       - mongodb_data:/data/db
+      - ./docker/mongodb-keyfile:/etc/mongodb-keyfile-source:ro
+      - ./docker/mongodb-entrypoint.sh:/docker-entrypoint-initdb.d/mongodb-entrypoint.sh:ro
+    # Run as a single-node replica set to support transactions
+    entrypoint: ["/bin/bash", "-c", "cp /etc/mongodb-keyfile-source /tmp/mongodb-keyfile && chmod 400 /tmp/mongodb-keyfile && chown mongodb:mongodb /tmp/mongodb-keyfile && exec docker-entrypoint.sh --replSet rs0 --bind_ip_all --keyFile /tmp/mongodb-keyfile"]
     healthcheck:
-      test: ["CMD", "mongosh", "--username", "${MONGO_INITDB_ROOT_USERNAME}", "--password", "${MONGO_INITDB_ROOT_PASSWORD}", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--username", "${MONGO_INITDB_ROOT_USERNAME}", "--password", "${MONGO_INITDB_ROOT_PASSWORD}", "--eval", "try { rs.status().ok } catch(e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongodb:27017'}]}).ok }"]
       interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
 
   redis:
     image: redis:7.4-alpine

@@ -69,18 +69,21 @@ Console.WriteLine($"Test Prescription: {testPrescriptionId}");
 Console.WriteLine($"Test Order: {testOrderId}");
 Console.WriteLine();
 
+// Track total failures across all test runs
+long totalFailures = 0;
+
 switch (testType)
 {
     case "load":
-        await RunLoadTestsAsync(client, settings, testPatientId, testPrescriptionId);
+        totalFailures += await RunLoadTestsAsync(client, settings, testPatientId, testPrescriptionId);
         break;
     case "concurrency":
-        await RunConcurrencyTestsAsync(client, settings, testPatientId, testPrescriptionId, testOrderId);
+        totalFailures += await RunConcurrencyTestsAsync(client, settings, testPatientId, testPrescriptionId, testOrderId);
         break;
     case "all":
     default:
-        await RunLoadTestsAsync(client, settings, testPatientId, testPrescriptionId);
-        await RunConcurrencyTestsAsync(client, settings, testPatientId, testPrescriptionId, testOrderId);
+        totalFailures += await RunLoadTestsAsync(client, settings, testPatientId, testPrescriptionId);
+        totalFailures += await RunConcurrencyTestsAsync(client, settings, testPatientId, testPrescriptionId, testOrderId);
         break;
 }
 
@@ -88,6 +91,14 @@ Console.WriteLine();
 Console.WriteLine("╔════════════════════════════════════════════════════════════════════╗");
 Console.WriteLine("║                         TESTS COMPLETE                             ║");
 Console.WriteLine("╚════════════════════════════════════════════════════════════════════╝");
+
+// Check for failures and exit with non-zero code if any test failed
+if (totalFailures > 0)
+{
+    Console.WriteLine();
+    Console.WriteLine($"[FAIL] Total failures: {totalFailures}");
+    Environment.Exit(1);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════════════
 // Helper Methods
@@ -185,7 +196,7 @@ async Task<Guid> GetOrCreatePrescriptionAsync(HttpClient httpClient, Guid patien
         dosage = "100mg",
         frequency = "Once daily",
         quantity = 30,
-        refillsAllowed = 3,
+        refillsAllowed = 12, // Maximum allowed - needed for high volume write tests
         prescriberName = "Dr. LoadTest",
         expiryDate = DateTime.UtcNow.AddYears(1).ToString("yyyy-MM-dd"),
         instructions = "Take with water"
@@ -237,7 +248,7 @@ async Task<Guid> ExtractIdFromResponseAsync(HttpResponseMessage response)
     return Guid.Empty;
 }
 
-async Task RunLoadTestsAsync(HttpClient httpClient, LoadTestSettings loadSettings, Guid patientId, Guid prescriptionId)
+async Task<long> RunLoadTestsAsync(HttpClient httpClient, LoadTestSettings loadSettings, Guid patientId, Guid prescriptionId)
 {
     Console.WriteLine("\n═══ RUNNING LOAD TESTS ═══\n");
 
@@ -245,20 +256,30 @@ async Task RunLoadTestsAsync(HttpClient httpClient, LoadTestSettings loadSetting
     var writeScenario = LoadTestScenarios.CreateWriteLoadScenario(httpClient, loadSettings, patientId, prescriptionId);
     var mixedScenario = LoadTestScenarios.CreateMixedWorkloadScenario(httpClient, loadSettings, patientId, prescriptionId);
 
-    NBomberRunner
+    var result = NBomberRunner
         .RegisterScenarios(readScenario, writeScenario, mixedScenario)
         .Run();
+
+    // Sum up all failures from all scenarios
+    var failures = result.ScenarioStats.Sum(s => s.Fail.Request.Count);
+    if (failures > 0)
+    {
+        Console.WriteLine($"\n[FAIL] Load tests had {failures} failed requests");
+    }
+    return failures;
 }
 
-async Task RunConcurrencyTestsAsync(HttpClient httpClient, LoadTestSettings loadSettings, Guid patientId, Guid prescriptionId, Guid orderId)
+async Task<long> RunConcurrencyTestsAsync(HttpClient httpClient, LoadTestSettings loadSettings, Guid patientId, Guid prescriptionId, Guid orderId)
 {
     Console.WriteLine("\n═══ RUNNING CONCURRENCY TESTS ═══\n");
+    long failures = 0;
 
     // Test 1: Concurrent writes - verify no duplicate IDs
     var (writeScenario, createdIds) = ConcurrencyTestScenarios.CreateConcurrentWritesScenario(
         httpClient, loadSettings, patientId, prescriptionId);
 
-    NBomberRunner.RegisterScenarios(writeScenario).Run();
+    var writeResult = NBomberRunner.RegisterScenarios(writeScenario).Run();
+    failures += writeResult.ScenarioStats.Sum(s => s.Fail.Request.Count);
 
     // Verify data integrity
     var uniqueCount = createdIds.Distinct().Count();
@@ -270,12 +291,19 @@ async Task RunConcurrencyTestsAsync(HttpClient httpClient, LoadTestSettings load
     var (rawScenario, consistencyResults) = ConcurrencyTestScenarios.CreateReadAfterWriteScenario(
         httpClient, loadSettings, patientId, prescriptionId);
 
-    NBomberRunner.RegisterScenarios(rawScenario).Run();
+    var rawResult = NBomberRunner.RegisterScenarios(rawScenario).Run();
+    failures += rawResult.ScenarioStats.Sum(s => s.Fail.Request.Count);
 
     var consistentCount = consistencyResults.Count(r => r);
     var totalCount = consistencyResults.Count;
     Console.WriteLine($"\n[CONSISTENCY] Consistent: {consistentCount}/{totalCount}");
     consistentCount.ShouldBe(totalCount, "DATA INCONSISTENCY DETECTED!");
     Console.WriteLine("[CONSISTENCY] ✅ All read-after-write operations consistent\n");
+
+    if (failures > 0)
+    {
+        Console.WriteLine($"\n[FAIL] Concurrency tests had {failures} failed requests");
+    }
+    return failures;
 }
 
